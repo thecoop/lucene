@@ -18,6 +18,7 @@ package org.apache.lucene.search.comparators;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexOptions;
@@ -613,12 +614,7 @@ public class TermOrdValComparator extends FieldComparator<BytesRef> {
         }
       }
       disjunction =
-          new PriorityQueue<PostingsEnumAndOrd>(size) {
-            @Override
-            protected boolean lessThan(PostingsEnumAndOrd a, PostingsEnumAndOrd b) {
-              return a.postings.docID() < b.postings.docID();
-            }
-          };
+          PriorityQueue.comparing(size, Comparator.comparingInt(po -> po.postings.docID()));
       disjunction.addAll(postings);
     }
   }

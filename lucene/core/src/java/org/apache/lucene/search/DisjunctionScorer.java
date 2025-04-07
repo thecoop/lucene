@@ -19,6 +19,7 @@ package org.apache.lucene.search;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import org.apache.lucene.util.PriorityQueue;
 
@@ -88,12 +89,7 @@ abstract class DisjunctionScorer extends Scorer {
       super(approximation);
       this.matchCost = matchCost;
       unverifiedMatches =
-          new PriorityQueue<DisiWrapper>(numClauses) {
-            @Override
-            protected boolean lessThan(DisiWrapper a, DisiWrapper b) {
-              return a.matchCost < b.matchCost;
-            }
-          };
+          PriorityQueue.comparing(numClauses, Comparator.comparingDouble(d -> d.matchCost));
     }
 
     DisiWrapper getSubMatches() throws IOException {

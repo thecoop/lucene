@@ -18,6 +18,7 @@ package org.apache.lucene.search.highlight;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Objects;
 import org.apache.lucene.analysis.Analyzer;
@@ -177,7 +178,11 @@ public class Highlighter {
     fragmentScorer.startFragment(currentFrag);
     docFrags.add(currentFrag);
 
-    FragmentQueue fragQueue = new FragmentQueue(maxNumFragments);
+    PriorityQueue<TextFragment> fragQueue =
+        PriorityQueue.comparing(
+            maxNumFragments,
+            Comparator.comparingDouble(TextFragment::getScore)
+                .thenComparing(Comparator.comparingInt(TextFragment::getFragNum).reversed()));
 
     try {
 
@@ -451,18 +456,6 @@ public class Highlighter {
   private static void ensureArgumentNotNull(Object argument, String message) {
     if (argument == null) {
       throw new IllegalArgumentException(message);
-    }
-  }
-
-  static class FragmentQueue extends PriorityQueue<TextFragment> {
-    FragmentQueue(int size) {
-      super(size);
-    }
-
-    @Override
-    public final boolean lessThan(TextFragment fragA, TextFragment fragB) {
-      if (fragA.getScore() == fragB.getScore()) return fragA.fragNum > fragB.fragNum;
-      else return fragA.getScore() < fragB.getScore();
     }
   }
 }

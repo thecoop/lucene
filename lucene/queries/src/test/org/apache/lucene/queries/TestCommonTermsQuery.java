@@ -19,6 +19,7 @@ package org.apache.lucene.queries;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -427,21 +428,9 @@ public class TestCommonTermsQuery extends LuceneTestCase {
     String field = "body";
     Terms terms = wrapper.terms(field);
     PriorityQueue<TermAndFreq> lowFreqQueue =
-        new PriorityQueue<TestCommonTermsQuery.TermAndFreq>(5) {
-
-          @Override
-          protected boolean lessThan(TermAndFreq a, TermAndFreq b) {
-            return a.freq > b.freq;
-          }
-        };
+        PriorityQueue.comparing(5, Comparator.<TermAndFreq>comparingInt(t -> t.freq).reversed());
     PriorityQueue<TermAndFreq> highFreqQueue =
-        new PriorityQueue<TestCommonTermsQuery.TermAndFreq>(5) {
-
-          @Override
-          protected boolean lessThan(TermAndFreq a, TermAndFreq b) {
-            return a.freq < b.freq;
-          }
-        };
+        PriorityQueue.comparing(5, Comparator.comparingInt(t -> t.freq));
     try {
       TermsEnum iterator = terms.iterator();
       while (iterator.next() != null) {

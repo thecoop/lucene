@@ -17,6 +17,7 @@
 package org.apache.lucene.codecs.lucene90;
 
 import java.io.IOException;
+import java.util.Comparator;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
@@ -105,24 +106,14 @@ public final class Lucene90CompoundFormat extends CompoundFormat {
 
   private record SizedFile(String name, long length) {}
 
-  private static class SizedFileQueue extends PriorityQueue<SizedFile> {
-    SizedFileQueue(int maxSize) {
-      super(maxSize);
-    }
-
-    @Override
-    protected boolean lessThan(SizedFile sf1, SizedFile sf2) {
-      return sf1.length < sf2.length;
-    }
-  }
-
   private void writeCompoundFile(
       IndexOutput entries, IndexOutput data, Directory dir, SegmentInfo si) throws IOException {
     // write number of files
     int numFiles = si.files().size();
     entries.writeVInt(numFiles);
     // first put files in ascending size order so small files fit more likely into one page
-    SizedFileQueue pq = new SizedFileQueue(numFiles);
+    PriorityQueue<SizedFile> pq =
+        PriorityQueue.comparing(numFiles, Comparator.comparingLong(SizedFile::length));
     for (String filename : si.files()) {
       pq.add(new SizedFile(filename, dir.fileLength(filename)));
     }

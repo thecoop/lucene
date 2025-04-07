@@ -18,6 +18,7 @@ package org.apache.lucene.util;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -74,13 +75,7 @@ public class TestPriorityQueue extends LuceneTestCase {
       }
     }
 
-    PriorityQueue<Value> pq =
-        new PriorityQueue<>(5) {
-          @Override
-          protected boolean lessThan(Value a, Value b) {
-            return a.value < b.value;
-          }
-        };
+    PriorityQueue<Value> pq = PriorityQueue.comparing(5, Comparator.comparingInt(v -> v.value));
 
     // Make all elements equal but record insertion order.
     for (int i = 0; i < 100; i++) {
