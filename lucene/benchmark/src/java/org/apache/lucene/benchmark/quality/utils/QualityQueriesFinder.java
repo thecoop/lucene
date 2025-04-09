@@ -18,6 +18,8 @@ package org.apache.lucene.benchmark.quality.utils;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.Comparator;
+import java.util.List;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.MultiTerms;
@@ -25,7 +27,7 @@ import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /**
  * Suggest Quality queries based on an index contents. Utility class, used for making quality test
@@ -99,7 +101,7 @@ public class QualityQueriesFinder {
   }
 
   private String[] bestTerms(String field, int numTerms) throws IOException {
-    PriorityQueue<TermDf> pq = new TermsDfQueue(numTerms);
+    TopNQueue<TermDf> pq = new TopNQueue<>(Comparator.comparingInt(tdf -> tdf.df), numTerms);
     IndexReader ir = DirectoryReader.open(dir);
     try {
       int threshold = ir.maxDoc() / 10; // ignore words too common.
@@ -117,11 +119,13 @@ public class QualityQueriesFinder {
     } finally {
       ir.close();
     }
-    String[] res = new String[pq.size()];
-    int i = 0;
-    while (pq.size() > 0) {
-      TermDf tdf = pq.pop();
-      res[i++] = tdf.word;
+
+    List<TermDf> sorted = pq.drainToSortedList();
+
+    String[] res = new String[sorted.size()];
+    for (int i = 0; i < sorted.size(); i++) {
+      TermDf tdf = sorted.get(i);
+      res[i] = tdf.word;
       System.out.println(i + ".   word:  " + tdf.df + "   " + tdf.word);
     }
     return res;
@@ -134,17 +138,6 @@ public class QualityQueriesFinder {
     TermDf(String word, int freq) {
       this.word = word;
       this.df = freq;
-    }
-  }
-
-  private static class TermsDfQueue extends PriorityQueue<TermDf> {
-    TermsDfQueue(int maxSize) {
-      super(maxSize);
-    }
-
-    @Override
-    protected boolean lessThan(TermDf tf1, TermDf tf2) {
-      return tf1.df < tf2.df;
     }
   }
 }

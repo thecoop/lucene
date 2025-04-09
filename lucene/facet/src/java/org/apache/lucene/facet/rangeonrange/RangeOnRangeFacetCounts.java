@@ -18,6 +18,7 @@ package org.apache.lucene.facet.rangeonrange;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import org.apache.lucene.document.BinaryRangeDocValues;
 import org.apache.lucene.document.RangeFieldQuery;
@@ -29,7 +30,7 @@ import org.apache.lucene.index.DocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 abstract class RangeOnRangeFacetCounts extends FacetCountsWithFilterQuery {
 
@@ -143,17 +144,11 @@ abstract class RangeOnRangeFacetCounts extends FacetCountsWithFilterQuery {
     validateTopN(topN);
     validateDimAndPathForGetChildren(dim, path);
 
-    PriorityQueue<Entry> pq =
-        new PriorityQueue<>(Math.min(topN, counts.length)) {
-          @Override
-          protected boolean lessThan(Entry a, Entry b) {
-            int cmp = Integer.compare(a.count, b.count);
-            if (cmp == 0) {
-              cmp = b.label.compareTo(a.label);
-            }
-            return cmp < 0;
-          }
-        };
+    TopNQueue<Entry> pq =
+        new TopNQueue<>(
+            Comparator.<Entry>comparingInt(e -> e.count)
+                .thenComparing(e -> e.label, Comparator.reverseOrder()),
+            Math.min(topN, counts.length));
 
     int childCount = 0;
     Entry e = null;
@@ -169,11 +164,11 @@ abstract class RangeOnRangeFacetCounts extends FacetCountsWithFilterQuery {
       }
     }
 
-    LabelAndValue[] results = new LabelAndValue[pq.size()];
-    while (pq.size() != 0) {
-      Entry entry = pq.pop();
-      assert entry != null;
-      results[pq.size()] = new LabelAndValue(entry.label, entry.count);
+    List<Entry> entries = pq.drainToSortedList();
+    LabelAndValue[] results = new LabelAndValue[entries.size()];
+    for (int i = 0; i < entries.size(); i++) {
+      Entry entry = entries.get(i);
+      results[entries.size() - i - 1] = new LabelAndValue(entry.label, entry.count);
     }
     return new FacetResult(dim, path, totCount, results, childCount);
   }

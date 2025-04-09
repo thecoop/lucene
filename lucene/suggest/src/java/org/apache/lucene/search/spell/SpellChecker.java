@@ -46,6 +46,7 @@ import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefIterator;
+import org.apache.lucene.util.TopNQueue;
 
 /**
  * Spell Checker class (Main class).<br>
@@ -363,7 +364,7 @@ public class SpellChecker implements java.io.Closeable {
       //    System.out.println("Q: " + query);
       ScoreDoc[] hits = indexSearcher.search(query.build(), maxHits).scoreDocs;
       //    System.out.println("HITS: " + hits.length());
-      SuggestWordQueue sugQueue = new SuggestWordQueue(numSug, comparator);
+      TopNQueue<SuggestWord> sugQueue = new TopNQueue<>(comparator, numSug);
 
       // go thru more than 'maxr' matches in case the distance filter triggers
       int stop = Math.min(hits.length, maxHits);
@@ -401,9 +402,10 @@ public class SpellChecker implements java.io.Closeable {
       }
 
       // convert to array string
+      List<SuggestWord> suggests = sugQueue.drainToSortedList();
       String[] list = new String[sugQueue.size()];
-      for (int i = sugQueue.size() - 1; i >= 0; i--) {
-        list[i] = sugQueue.pop().string;
+      for (int i = 0; i < suggests.size(); i++) {
+        list[suggests.size() - i - 1] = suggests.get(i).string;
       }
 
       return list;

@@ -30,7 +30,7 @@ import org.apache.lucene.index.DocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /**
  * Returns the counts for each given {@link FacetSet}
@@ -160,13 +160,9 @@ public class MatchingFacetSetsCounts extends FacetCountsWithFilterQuery {
 
     topN = Math.min(topN, counts.length);
 
-    PriorityQueue<Entry> pq =
-        new PriorityQueue<>(topN, () -> new Entry("", 0)) {
-          @Override
-          protected boolean lessThan(Entry a, Entry b) {
-            return compare(a.count, b.count, a.label, b.label) < 0;
-          }
-        };
+    TopNQueue<Entry> pq =
+        new TopNQueue<>(
+            (a, b) -> compare(a.count, b.count, a.label, b.label), topN, () -> new Entry("", 0));
 
     int childCount = 0;
     Entry reuse = pq.top();
@@ -183,16 +179,18 @@ public class MatchingFacetSetsCounts extends FacetCountsWithFilterQuery {
       }
     }
 
-    // Pop off any sentinel values in the case that we had fewer child labels with non-zero
+    List<Entry> entries = pq.drainToSortedList();
+
+    // Remove any sentinel values in the case that we had fewer child labels with non-zero
     // counts than the requested top-n:
-    while (childCount < pq.size()) {
-      pq.pop();
+    if (childCount < entries.size()) {
+      entries = entries.subList(entries.size() - childCount, entries.size());
     }
 
     LabelAndValue[] labelValues = new LabelAndValue[Math.min(topN, childCount)];
-    for (int i = pq.size() - 1; i >= 0; i--) {
-      Entry e = pq.pop();
-      labelValues[i] = new LabelAndValue(e.label, e.count);
+    for (int i = 0; i < entries.size(); i++) {
+      Entry e = entries.get(i);
+      labelValues[entries.size() - i - 1] = new LabelAndValue(e.label, e.count);
     }
 
     return new FacetResult(dim, path, totCount, labelValues, childCount);

@@ -45,7 +45,7 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.search.similarities.TFIDFSimilarity;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 import org.apache.lucene.util.automaton.LevenshteinAutomata;
 
 /**
@@ -189,7 +189,8 @@ public class FuzzyLikeThisQuery extends Query {
     fieldVals.add(new FieldVals(fieldName, maxEdits, prefixLength, queryString));
   }
 
-  private void addTerms(IndexReader reader, FieldVals f, ScoreTermQueue q) throws IOException {
+  private void addTerms(IndexReader reader, FieldVals f, TopNQueue<ScoreTerm> q)
+      throws IOException {
     if (f.queryString == null) return;
     final Terms terms = MultiTerms.getTerms(reader, f.fieldName);
     if (terms == null) {
@@ -205,8 +206,9 @@ public class FuzzyLikeThisQuery extends Query {
         String term = termAtt.toString();
         if (!processedTerms.contains(term)) {
           processedTerms.add(term);
-          ScoreTermQueue variantsQ =
-              new ScoreTermQueue(
+          TopNQueue<ScoreTerm> variantsQ =
+              new TopNQueue<>(
+                  FuzzyLikeThisQuery::compareScoreTerms,
                   MAX_VARIANTS_PER_TERM); // maxNum variants considered for any one term
           float minScore = 0;
           Term startTerm = new Term(f.fieldName, term);
@@ -242,9 +244,7 @@ public class FuzzyLikeThisQuery extends Query {
             // take the top variants (scored by edit distance) and reset the score
             // to include an IDF factor then add to the global queue for ranking
             // overall top query terms
-            int size = variantsQ.size();
-            for (int i = 0; i < size; i++) {
-              ScoreTerm st = variantsQ.pop();
+            for (ScoreTerm st : variantsQ.drainToSortedList()) {
               st.score = (st.score * st.score) * sim.idf(df, corpusNumDocs);
               q.insertWithOverflow(st);
             }
@@ -282,7 +282,7 @@ public class FuzzyLikeThisQuery extends Query {
   @Override
   public Query rewrite(IndexSearcher indexSearcher) throws IOException {
     IndexReader reader = indexSearcher.getIndexReader();
-    ScoreTermQueue q = new ScoreTermQueue(maxNumTerms);
+    TopNQueue<ScoreTerm> q = new TopNQueue<>(FuzzyLikeThisQuery::compareScoreTerms, maxNumTerms);
     // load up the list of possible terms
     for (FieldVals f : fieldVals) {
       addTerms(reader, f, q);
@@ -294,15 +294,8 @@ public class FuzzyLikeThisQuery extends Query {
     // has no coord factor
     // Step 1: sort the termqueries by term/field
     HashMap<Term, ArrayList<ScoreTerm>> variantQueries = new HashMap<>();
-    int size = q.size();
-    for (int i = 0; i < size; i++) {
-      ScoreTerm st = q.pop();
-      ArrayList<ScoreTerm> l = variantQueries.get(st.fuzziedSourceTerm);
-      if (l == null) {
-        l = new ArrayList<>();
-        variantQueries.put(st.fuzziedSourceTerm, l);
-      }
-      l.add(st);
+    for (ScoreTerm st : q.drainToSortedList()) {
+      variantQueries.computeIfAbsent(st.fuzziedSourceTerm, _ -> new ArrayList<>()).add(st);
     }
     // Step 2: Organize the sorted termqueries into zero-coord scoring boolean queries
     for (Iterator<ArrayList<ScoreTerm>> iter = variantQueries.values().iterator();
@@ -347,20 +340,12 @@ public class FuzzyLikeThisQuery extends Query {
     }
   }
 
-  private static class ScoreTermQueue extends PriorityQueue<ScoreTerm> {
-    public ScoreTermQueue(int size) {
-      super(size);
+  private static int compareScoreTerms(ScoreTerm termA, ScoreTerm termB) {
+    int res = Float.compare(termA.score, termB.score);
+    if (res == 0) {
+      res = termB.term.compareTo(termA.term);
     }
-
-    /* (non-Javadoc)
-     * @see org.apache.lucene.util.PriorityQueue#lessThan(java.lang.Object, java.lang.Object)
-     */
-    @Override
-    protected boolean lessThan(ScoreTerm termA, ScoreTerm termB) {
-      if (termA.score == termB.score) {
-        return termA.term.compareTo(termB.term) > 0;
-      } else return termA.score < termB.score;
-    }
+    return res;
   }
 
   /* (non-Javadoc)

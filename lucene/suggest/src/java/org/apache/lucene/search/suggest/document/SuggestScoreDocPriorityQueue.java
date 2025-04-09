@@ -16,38 +16,38 @@
  */
 package org.apache.lucene.search.suggest.document;
 
+import java.util.Comparator;
+import java.util.List;
 import org.apache.lucene.search.suggest.Lookup;
 import org.apache.lucene.search.suggest.document.TopSuggestDocs.SuggestScoreDoc;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /**
  * Bounded priority queue for {@link SuggestScoreDoc}s. Priority is based on {@link
  * SuggestScoreDoc#score} and tie is broken by {@link SuggestScoreDoc#doc}
  */
-final class SuggestScoreDocPriorityQueue extends PriorityQueue<SuggestScoreDoc> {
-  /** Creates a new priority queue of the specified size. */
-  public SuggestScoreDocPriorityQueue(int size) {
-    super(size);
+final class SuggestScoreDocPriorityQueue extends TopNQueue<SuggestScoreDoc> {
+
+  private static int compare(SuggestScoreDoc a, SuggestScoreDoc b) {
+    int res = Float.compare(a.score, b.score);
+    if (res == 0) {
+      // tie break by completion key
+      res = Lookup.CHARSEQUENCE_COMPARATOR.compare(b.key, a.key);
+    }
+    if (res == 0) {
+      res = Integer.compare(b.doc, a.doc);
+    }
+    return res;
   }
 
-  @Override
-  protected boolean lessThan(SuggestScoreDoc a, SuggestScoreDoc b) {
-    if (a.score == b.score) {
-      // tie break by completion key
-      int cmp = Lookup.CHARSEQUENCE_COMPARATOR.compare(a.key, b.key);
-      // prefer smaller doc id, in case of a tie
-      return cmp != 0 ? cmp > 0 : a.doc > b.doc;
-    }
-    return a.score < b.score;
+  /** Creates a new priority queue of the specified size. */
+  public SuggestScoreDocPriorityQueue(int size) {
+    super(SuggestScoreDocPriorityQueue::compare, size);
   }
 
   /** Returns the top N results in descending order. */
-  public SuggestScoreDoc[] getResults() {
-    int size = size();
-    SuggestScoreDoc[] res = new SuggestScoreDoc[size];
-    for (int i = size - 1; i >= 0; i--) {
-      res[i] = pop();
-    }
-    return res;
+  public List<SuggestScoreDoc> getResults() {
+    return drainToSortedList(
+        ((Comparator<SuggestScoreDoc>) SuggestScoreDocPriorityQueue::compare).reversed());
   }
 }

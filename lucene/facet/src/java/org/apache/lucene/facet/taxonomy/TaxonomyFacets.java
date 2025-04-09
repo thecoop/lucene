@@ -36,7 +36,7 @@ import org.apache.lucene.facet.TopOrdAndIntQueue;
 import org.apache.lucene.facet.TopOrdAndNumberQueue;
 import org.apache.lucene.internal.hppc.IntArrayList;
 import org.apache.lucene.internal.hppc.IntIntHashMap;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /** Base class for all taxonomy-based facets impls. */
 abstract class TaxonomyFacets extends Facets {
@@ -607,20 +607,11 @@ abstract class TaxonomyFacets extends Facets {
 
     // Create priority queue to store top dimensions and sort by their aggregated values/hits and
     // string values.
-    PriorityQueue<DimValue> pq =
-        new PriorityQueue<>(topNDims) {
-          @Override
-          protected boolean lessThan(DimValue a, DimValue b) {
-            int comparison = valueComparator.compare(a.value, b.value);
-            if (comparison < 0) {
-              return true;
-            }
-            if (comparison > 0) {
-              return false;
-            }
-            return a.dim.compareTo(b.dim) > 0;
-          }
-        };
+    TopNQueue<DimValue> pq =
+        new TopNQueue<>(
+            Comparator.<DimValue, Number>comparing(dv -> dv.value, valueComparator)
+                .thenComparing(dv -> dv.dim, Comparator.reverseOrder()),
+            topNDims);
 
     // Keep track of intermediate results, if we compute them, so we can reuse them later:
     Map<String, TopChildrenForPath> intermediateResults = null;
@@ -677,10 +668,12 @@ abstract class TaxonomyFacets extends Facets {
       ord = siblings.get(ord);
     }
 
-    FacetResult[] results = new FacetResult[pq.size()];
+    List<DimValue> values = pq.drainToSortedList();
 
-    while (pq.size() > 0) {
-      DimValue dimValue = pq.pop();
+    int resultSize = values.size();
+    FacetResult[] results = new FacetResult[resultSize];
+
+    for (DimValue dimValue : values) {
       assert dimValue != null;
       String dim = dimValue.dim;
       TopChildrenForPath topChildrenForPath = null;
@@ -693,7 +686,7 @@ abstract class TaxonomyFacets extends Facets {
       }
       FacetResult facetResult = createFacetResult(topChildrenForPath, dim);
       assert facetResult != null;
-      results[pq.size()] = facetResult;
+      results[--resultSize] = facetResult;
     }
     return Arrays.asList(results);
   }

@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +35,7 @@ import org.apache.lucene.facet.sortedset.SortedSetDocValuesReaderState.DimTree;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesReaderState.OrdRange;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /** Base class for SSDV faceting implementations. */
 abstract class AbstractSortedSetDocValueFacetCounts extends Facets {
@@ -147,22 +148,13 @@ abstract class AbstractSortedSetDocValueFacetCounts extends Facets {
       return Collections.emptyList();
     }
 
-    // Creates priority queue to store top dimensions and sort by their aggregated values/hits and
+    // Creates TopN queue to store top dimensions and sort by their aggregated values/hits and
     // string values.
-    PriorityQueue<DimValue> pq =
-        new PriorityQueue<>(topNDims) {
-          @Override
-          protected boolean lessThan(DimValue a, DimValue b) {
-            if (a.value > b.value) {
-              return false;
-            } else if (a.value < b.value) {
-              return true;
-            } else {
-              return a.dim.compareTo(b.dim) > 0;
-            }
-          }
-        };
-
+    TopNQueue<DimValue> pq =
+        new TopNQueue<>(
+            Comparator.<DimValue>comparingInt(dv -> dv.value)
+                .thenComparing(dv -> dv.dim, Comparator.reverseOrder()),
+            topNDims);
     // Keep track of intermediate results, if we compute them, so we can reuse them later:
     Map<String, TopChildrenForPath> intermediateResults = null;
 
@@ -219,11 +211,12 @@ abstract class AbstractSortedSetDocValueFacetCounts extends Facets {
       }
     }
 
-    int resultSize = pq.size();
+    List<DimValue> values = pq.drainToSortedList();
+
+    int resultSize = values.size();
     FacetResult[] results = new FacetResult[resultSize];
 
-    while (pq.size() > 0) {
-      DimValue dimValue = pq.pop();
+    for (DimValue dimValue : values) {
       assert dimValue != null;
       TopChildrenForPath topChildrenForPath = null;
       if (intermediateResults != null) {
@@ -235,8 +228,7 @@ abstract class AbstractSortedSetDocValueFacetCounts extends Facets {
       FacetResult facetResult = createFacetResult(topChildrenForPath, dimValue.dim);
       // should not be null since only dims with non-zero values were considered earlier
       assert facetResult != null;
-      resultSize--;
-      results[resultSize] = facetResult;
+      results[--resultSize] = facetResult;
     }
     return Arrays.asList(results);
   }

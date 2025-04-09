@@ -18,6 +18,7 @@ package org.apache.lucene.facet.range;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import org.apache.lucene.facet.FacetCountsWithFilterQuery;
 import org.apache.lucene.facet.FacetResult;
@@ -28,7 +29,7 @@ import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /**
  * Base class for range faceting.
@@ -222,17 +223,11 @@ abstract class RangeFacetCounts extends FacetCountsWithFilterQuery {
       return new FacetResult(dim, path, totCount, new LabelAndValue[0], 0);
     }
 
-    PriorityQueue<Entry> pq =
-        new PriorityQueue<>(Math.min(topN, counts.length)) {
-          @Override
-          protected boolean lessThan(Entry a, Entry b) {
-            int cmp = Integer.compare(a.count, b.count);
-            if (cmp == 0) {
-              cmp = b.label.compareTo(a.label);
-            }
-            return cmp < 0;
-          }
-        };
+    TopNQueue<Entry> pq =
+        new TopNQueue<>(
+            Comparator.<Entry>comparingInt(e -> e.count)
+                .thenComparing(e -> e.label, Comparator.reverseOrder()),
+            Math.min(topN, counts.length));
 
     int childCount = 0;
     Entry e = null;
@@ -248,10 +243,11 @@ abstract class RangeFacetCounts extends FacetCountsWithFilterQuery {
       }
     }
 
-    LabelAndValue[] results = new LabelAndValue[pq.size()];
-    while (pq.size() != 0) {
-      Entry entry = pq.pop();
-      results[pq.size()] = new LabelAndValue(entry.label, entry.count);
+    List<Entry> entries = pq.drainToSortedList();
+    LabelAndValue[] results = new LabelAndValue[entries.size()];
+    for (int i = 0; i < entries.size(); i++) {
+      Entry entry = entries.get(i);
+      results[entries.size() - i - 1] = new LabelAndValue(entry.label, entry.count);
     }
     return new FacetResult(dim, path, totCount, results, childCount);
   }

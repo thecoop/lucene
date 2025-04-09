@@ -18,6 +18,7 @@ package org.apache.lucene.classification.utils;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Objects;
@@ -40,7 +41,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 import org.apache.lucene.util.automaton.LevenshteinAutomata;
 
 /** Simplification of FuzzyLikeThisQuery, to be used in the context of KNN classification. */
@@ -125,7 +126,8 @@ public class NearestFuzzyQuery extends Query {
     fieldVals.add(new FieldVals(fieldName, maxEdits, queryString));
   }
 
-  private void addTerms(IndexReader reader, FieldVals f, ScoreTermQueue q) throws IOException {
+  private void addTerms(IndexReader reader, FieldVals f, TopNQueue<ScoreTerm> q)
+      throws IOException {
     if (f.queryString == null) return;
     final Terms terms = MultiTerms.getTerms(reader, f.fieldName);
     if (terms == null) {
@@ -141,8 +143,9 @@ public class NearestFuzzyQuery extends Query {
         String term = termAtt.toString();
         if (!processedTerms.contains(term)) {
           processedTerms.add(term);
-          ScoreTermQueue variantsQ =
-              new ScoreTermQueue(
+          TopNQueue<ScoreTerm> variantsQ =
+              new TopNQueue<ScoreTerm>(
+                  Comparator.naturalOrder(),
                   MAX_VARIANTS_PER_TERM); // maxNum variants considered for any one term
           float minScore = 0;
           Term startTerm = new Term(f.fieldName, term);
@@ -177,13 +180,9 @@ public class NearestFuzzyQuery extends Query {
             // take the top variants (scored by edit distance) and reset the score
             // to include an IDF factor then add to the global queue for ranking
             // overall top query terms
-            int size = variantsQ.size();
-            for (int i = 0; i < size; i++) {
-              ScoreTerm st = variantsQ.pop();
-              if (st != null) {
-                st.score = (st.score * st.score) * idf(df, corpusNumDocs);
-                q.insertWithOverflow(st);
-              }
+            for (ScoreTerm st : variantsQ.drainToSortedList()) {
+              st.score = (st.score * st.score) * idf(df, corpusNumDocs);
+              q.insertWithOverflow(st);
             }
           }
         }
@@ -214,7 +213,7 @@ public class NearestFuzzyQuery extends Query {
   @Override
   public Query rewrite(IndexSearcher indexSearcher) throws IOException {
     IndexReader reader = indexSearcher.getIndexReader();
-    ScoreTermQueue q = new ScoreTermQueue(MAX_NUM_TERMS);
+    TopNQueue<ScoreTerm> q = new TopNQueue<ScoreTerm>(Comparator.naturalOrder(), MAX_NUM_TERMS);
     // load up the list of possible terms
     for (FieldVals f : fieldVals) {
       addTerms(reader, f, q);
@@ -226,14 +225,8 @@ public class NearestFuzzyQuery extends Query {
     // has no coord factor
     // Step 1: sort the termqueries by term/field
     HashMap<Term, ArrayList<ScoreTerm>> variantQueries = new HashMap<>();
-    int size = q.size();
-    for (int i = 0; i < size; i++) {
-      ScoreTerm st = q.pop();
-      if (st != null) {
-        ArrayList<ScoreTerm> l =
-            variantQueries.computeIfAbsent(st.fuzziedSourceTerm, _ -> new ArrayList<>());
-        l.add(st);
-      }
+    for (ScoreTerm st : q.drainToSortedList()) {
+      variantQueries.computeIfAbsent(st.fuzziedSourceTerm, _ -> new ArrayList<>()).add(st);
     }
     // Step 2: Organize the sorted termqueries into zero-coord scoring boolean queries
     for (ArrayList<ScoreTerm> variants : variantQueries.values()) {
@@ -263,7 +256,7 @@ public class NearestFuzzyQuery extends Query {
   // Holds info for a fuzzy term variant - initially score is set to edit distance (for ranking best
   // term variants) then is reset with IDF for use in ranking against all other
   // terms/fields
-  private static class ScoreTerm {
+  private static class ScoreTerm implements Comparable<ScoreTerm> {
     public final Term term;
     public float score;
     final Term fuzziedSourceTerm;
@@ -273,20 +266,14 @@ public class NearestFuzzyQuery extends Query {
       this.score = score;
       this.fuzziedSourceTerm = fuzziedSourceTerm;
     }
-  }
 
-  private static class ScoreTermQueue extends PriorityQueue<ScoreTerm> {
-    ScoreTermQueue(int size) {
-      super(size);
-    }
-
-    /* (non-Javadoc)
-     * @see org.apache.lucene.util.PriorityQueue#lessThan(java.lang.Object, java.lang.Object)
-     */
     @Override
-    protected boolean lessThan(ScoreTerm termA, ScoreTerm termB) {
-      if (termA.score == termB.score) return termA.term.compareTo(termB.term) > 0;
-      else return termA.score < termB.score;
+    public int compareTo(ScoreTerm o) {
+      int ret = Float.compare(score, o.score);
+      if (ret == 0) {
+        ret = term.compareTo(o.term);
+      }
+      return ret;
     }
   }
 

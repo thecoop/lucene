@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import org.apache.lucene.facet.FacetsCollector.MatchingDocs;
 import org.apache.lucene.index.DocValues;
@@ -35,7 +36,7 @@ import org.apache.lucene.search.LongValues;
 import org.apache.lucene.search.LongValuesSource;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.InPlaceMergeSorter;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /**
  * {@link Facets} implementation that computes counts for all unique long values, more efficiently
@@ -419,14 +420,12 @@ public class LongValueFacetCounts extends Facets {
       return new FacetResult(field, new String[0], totCount, new LabelAndValue[0], 0);
     }
 
-    PriorityQueue<Entry> pq =
-        new PriorityQueue<>(Math.min(topN, counts.length + hashCounts.size())) {
-          @Override
-          protected boolean lessThan(Entry a, Entry b) {
-            // sort by count descending, breaking ties by value ascending:
-            return a.count < b.count || (a.count == b.count && a.value > b.value);
-          }
-        };
+    // sort by count descending, breaking ties by value ascending
+    TopNQueue<Entry> pq =
+        new TopNQueue<>(
+            Comparator.<Entry>comparingInt(e -> e.count)
+                .thenComparing(Comparator.<Entry>comparingLong(e -> e.value).reversed()),
+            Math.min(topN, counts.length + hashCounts.size()));
 
     int childCount = 0;
     Entry e = null;
@@ -457,10 +456,11 @@ public class LongValueFacetCounts extends Facets {
       }
     }
 
-    LabelAndValue[] results = new LabelAndValue[pq.size()];
-    while (pq.size() != 0) {
-      Entry entry = pq.pop();
-      results[pq.size()] = new LabelAndValue(Long.toString(entry.value), entry.count);
+    List<Entry> entries = pq.drainToSortedList();
+    LabelAndValue[] results = new LabelAndValue[entries.size()];
+    for (int i = 0; i < entries.size(); i++) {
+      Entry entry = entries.get(i);
+      results[entries.size() - i - 1] = new LabelAndValue(Long.toString(entry.value), entry.count);
     }
 
     return new FacetResult(field, new String[0], totCount, results, childCount);

@@ -32,6 +32,7 @@ import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /**
  * Simple Lookup interface for {@link CharSequence} suggestions.
@@ -136,16 +137,16 @@ public abstract class Lookup implements Accountable {
   }
 
   /** A {@link PriorityQueue} collecting a fixed size of high priority {@link LookupResult} */
-  public static final class LookupPriorityQueue extends PriorityQueue<LookupResult> {
+  public static final class LookupPriorityQueue extends TopNQueue<LookupResult> {
+
+    private static int compare(LookupResult a, LookupResult b) {
+      return Long.compare(a.value, b.value);
+    }
+
     // TODO: should we move this out of the interface into a utility class?
     /** Creates a new priority queue of the specified size. */
     public LookupPriorityQueue(int size) {
-      super(size);
-    }
-
-    @Override
-    protected boolean lessThan(LookupResult a, LookupResult b) {
-      return a.value < b.value;
+      super(LookupPriorityQueue::compare, size);
     }
 
     /**
@@ -153,13 +154,9 @@ public abstract class Lookup implements Accountable {
      *
      * @return the top N results in descending order.
      */
-    public LookupResult[] getResults() {
-      int size = size();
-      LookupResult[] res = new LookupResult[size];
-      for (int i = size - 1; i >= 0; i--) {
-        res[i] = pop();
-      }
-      return res;
+    public List<LookupResult> getResults() {
+      return drainToSortedList(
+          ((Comparator<LookupResult>) LookupPriorityQueue::compare).reversed());
     }
   }
 

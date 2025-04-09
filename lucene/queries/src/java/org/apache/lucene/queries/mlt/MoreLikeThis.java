@@ -19,9 +19,9 @@ package org.apache.lucene.queries.mlt;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.lucene.analysis.Analyzer;
@@ -45,9 +45,10 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.search.similarities.TFIDFSimilarity;
+import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRefBuilder;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /**
  * Generate "more like this" similarity queries. Based on this mail:
@@ -569,7 +570,7 @@ public final class MoreLikeThis {
     if (fieldNames == null) {
       // gather list of valid fields from lucene
       Collection<String> fields = FieldInfos.getIndexedFields(ir);
-      fieldNames = fields.toArray(new String[fields.size()]);
+      fieldNames = fields.toArray(String[]::new);
     }
     return createQuery(retrieveTerms(filteredDocument));
   }
@@ -585,16 +586,15 @@ public final class MoreLikeThis {
     for (Reader r : readers) {
       addTermFrequencies(r, perFieldTermFrequencies, fieldName);
     }
-    return createQuery(createQueue(perFieldTermFrequencies));
+    return createQuery(createList(perFieldTermFrequencies));
   }
 
-  /** Create the More like query from a PriorityQueue */
-  private Query createQuery(PriorityQueue<ScoreTerm> q) {
+  /** Create the More like query from a sorted list */
+  private Query createQuery(List<ScoreTerm> q) {
     BooleanQuery.Builder query = new BooleanQuery.Builder();
-    ScoreTerm scoreTerm;
     float bestScore = -1;
 
-    while ((scoreTerm = q.pop()) != null) {
+    for (ScoreTerm scoreTerm : q) {
       Query tq = new TermQuery(new Term(scoreTerm.topField, scoreTerm.word));
 
       if (boost) {
@@ -617,16 +617,18 @@ public final class MoreLikeThis {
   }
 
   /**
-   * Create a PriorityQueue from a word-&gt;tf map.
+   * Create a sorted list from a word-&gt;tf map.
    *
    * @param perFieldTermFrequencies a per field map of words keyed on the word(String) with Int
    *     objects as the values.
    */
-  private PriorityQueue<ScoreTerm> createQueue(
-      Map<String, Map<String, Int>> perFieldTermFrequencies) throws IOException {
+  private List<ScoreTerm> createList(Map<String, Map<String, Int>> perFieldTermFrequencies)
+      throws IOException {
     // have collected all words in doc and their freqs
     final int limit = Math.min(maxQueryTerms, this.getTermsCount(perFieldTermFrequencies));
-    FreqQ queue = new FreqQ(limit); // will order words by score
+    TopNQueue<ScoreTerm> queue =
+        new TopNQueue<>(
+            (a, b) -> Float.compare(a.score, b.score), limit); // will order words by score
     for (Map.Entry<String, Map<String, Int>> entry : perFieldTermFrequencies.entrySet()) {
       Map<String, Int> perWordTermFrequencies = entry.getValue();
       String fieldName = entry.getKey();
@@ -673,7 +675,7 @@ public final class MoreLikeThis {
         }
       }
     }
-    return queue;
+    return queue.drainToSortedList();
   }
 
   private int getTermsCount(Map<String, Map<String, Int>> perFieldTermFrequencies) {
@@ -709,7 +711,7 @@ public final class MoreLikeThis {
    *
    * @param docNum the id of the lucene document from which to find terms
    */
-  private PriorityQueue<ScoreTerm> retrieveTerms(int docNum) throws IOException {
+  private List<ScoreTerm> retrieveTerms(int docNum) throws IOException {
     Map<String, Map<String, Int>> field2termFreqMap = new HashMap<>();
     TermVectors termVectors = ir.termVectors();
     for (String fieldName : fieldNames) {
@@ -736,10 +738,10 @@ public final class MoreLikeThis {
       }
     }
 
-    return createQueue(field2termFreqMap);
+    return createList(field2termFreqMap);
   }
 
-  private PriorityQueue<ScoreTerm> retrieveTerms(Map<String, Collection<Object>> field2fieldValues)
+  private List<ScoreTerm> retrieveTerms(Map<String, Collection<Object>> field2fieldValues)
       throws IOException {
     Map<String, Map<String, Int>> field2termFreqMap = new HashMap<>();
     for (String fieldName : fieldNames) {
@@ -754,7 +756,7 @@ public final class MoreLikeThis {
         }
       }
     }
-    return createQueue(field2termFreqMap);
+    return createList(field2termFreqMap);
   }
 
   /**
@@ -876,28 +878,25 @@ public final class MoreLikeThis {
    *     or best entry, first
    * @see #retrieveInterestingTerms
    */
-  private PriorityQueue<ScoreTerm> retrieveTerms(Reader r, String fieldName) throws IOException {
+  private List<ScoreTerm> retrieveTerms(Reader r, String fieldName) throws IOException {
     Map<String, Map<String, Int>> field2termFreqMap = new HashMap<>();
     addTermFrequencies(r, field2termFreqMap, fieldName);
-    return createQueue(field2termFreqMap);
+    return createList(field2termFreqMap);
   }
 
   /**
    * @see #retrieveInterestingTerms(java.io.Reader, String)
    */
   public String[] retrieveInterestingTerms(int docNum) throws IOException {
-    ArrayList<String> al = new ArrayList<>(maxQueryTerms);
-    PriorityQueue<ScoreTerm> pq = retrieveTerms(docNum);
-    ScoreTerm scoreTerm;
     // have to be careful, retrieveTerms returns all words but that's probably not useful to our
     // caller...
-    int lim = maxQueryTerms;
-    // we just want to return the top words
-    while (((scoreTerm = pq.pop()) != null) && lim-- > 0) {
-      al.add(scoreTerm.word); // the 1st entry is the interesting word
+    List<ScoreTerm> terms = retrieveTerms(docNum);
+    String[] res = new String[maxQueryTerms];
+    int i;
+    for (i = 0; i < terms.size() && i < maxQueryTerms; i++) {
+      res[i] = terms.get(i).word;
     }
-    String[] res = new String[al.size()];
-    return al.toArray(res);
+    return i < res.length ? ArrayUtil.copyOfSubArray(res, 0, i) : res;
   }
 
   /**
@@ -911,30 +910,15 @@ public final class MoreLikeThis {
    * @see #setMaxQueryTerms
    */
   public String[] retrieveInterestingTerms(Reader r, String fieldName) throws IOException {
-    ArrayList<String> al = new ArrayList<>(maxQueryTerms);
-    PriorityQueue<ScoreTerm> pq = retrieveTerms(r, fieldName);
-    ScoreTerm scoreTerm;
     // have to be careful, retrieveTerms returns all words but that's probably not useful to our
     // caller...
-    int lim = maxQueryTerms;
-    // we just want to return the top words
-    while (((scoreTerm = pq.pop()) != null) && lim-- > 0) {
-      al.add(scoreTerm.word); // the 1st entry is the interesting word
+    List<ScoreTerm> terms = retrieveTerms(r, fieldName);
+    String[] res = new String[maxQueryTerms];
+    int i;
+    for (i = 0; i < terms.size() && i < maxQueryTerms; i++) {
+      res[i] = terms.get(i).word;
     }
-    String[] res = new String[al.size()];
-    return al.toArray(res);
-  }
-
-  /** PriorityQueue that orders words by score. */
-  private static class FreqQ extends PriorityQueue<ScoreTerm> {
-    FreqQ(int maxSize) {
-      super(maxSize);
-    }
-
-    @Override
-    protected boolean lessThan(ScoreTerm a, ScoreTerm b) {
-      return a.score < b.score;
-    }
+    return i < res.length ? ArrayUtil.copyOfSubArray(res, 0, i) : res;
   }
 
   private static class ScoreTerm {

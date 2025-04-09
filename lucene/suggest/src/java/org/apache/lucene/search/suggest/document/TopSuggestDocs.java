@@ -110,7 +110,7 @@ public class TopSuggestDocs extends TopDocs {
         }
       }
     }
-    SuggestScoreDoc[] topNResults = priorityQueue.getResults();
+    SuggestScoreDoc[] topNResults = priorityQueue.getResults().toArray(SuggestScoreDoc[]::new);
     if (topNResults.length > 0) {
       return new TopSuggestDocs(
           new TotalHits(topNResults.length, TotalHits.Relation.EQUAL_TO), topNResults);

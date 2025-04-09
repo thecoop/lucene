@@ -18,13 +18,14 @@ package org.apache.lucene.search.highlight;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Objects;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /**
  * Marks up highlighted terms found in the best sections of text, using configurable {@link
@@ -177,7 +178,8 @@ public class Highlighter {
     fragmentScorer.startFragment(currentFrag);
     docFrags.add(currentFrag);
 
-    FragmentQueue fragQueue = new FragmentQueue(maxNumFragments);
+    TopNQueue<TextFragment> fragQueue =
+        new TopNQueue<>(Highlighter::compareFragments, maxNumFragments);
 
     try {
 
@@ -286,10 +288,11 @@ public class Highlighter {
       }
 
       // return the most relevant fragments
-      TextFragment[] frag = new TextFragment[fragQueue.size()];
-      for (int i = frag.length - 1; i >= 0; i--) {
-        frag[i] = fragQueue.pop();
-      }
+      TextFragment[] frag =
+          fragQueue
+              .drainToSortedList(
+                  ((Comparator<TextFragment>) Highlighter::compareFragments).reversed())
+              .toArray(TextFragment[]::new);
 
       // merge any contiguous fragments to improve readability
       if (mergeContiguousFragments) {
@@ -454,15 +457,11 @@ public class Highlighter {
     }
   }
 
-  static class FragmentQueue extends PriorityQueue<TextFragment> {
-    FragmentQueue(int size) {
-      super(size);
+  private static int compareFragments(TextFragment fragA, TextFragment fragB) {
+    int res = Float.compare(fragA.score, fragB.score);
+    if (res == 0) {
+      res = Integer.compare(fragB.fragNum, fragA.fragNum);
     }
-
-    @Override
-    public final boolean lessThan(TextFragment fragA, TextFragment fragB) {
-      if (fragA.getScore() == fragB.getScore()) return fragA.fragNum > fragB.fragNum;
-      else return fragA.getScore() < fragB.getScore();
-    }
+    return res;
   }
 }

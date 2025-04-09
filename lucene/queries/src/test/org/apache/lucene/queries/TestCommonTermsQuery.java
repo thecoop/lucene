@@ -17,8 +17,8 @@
 package org.apache.lucene.queries;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -52,7 +52,7 @@ import org.apache.lucene.tests.util.LuceneTestCase;
 import org.apache.lucene.tests.util.TestUtil;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 import org.junit.Test;
 
 public class TestCommonTermsQuery extends LuceneTestCase {
@@ -426,22 +426,9 @@ public class TestCommonTermsQuery extends LuceneTestCase {
     LeafReader wrapper = getOnlyLeafReader(reader);
     String field = "body";
     Terms terms = wrapper.terms(field);
-    PriorityQueue<TermAndFreq> lowFreqQueue =
-        new PriorityQueue<TestCommonTermsQuery.TermAndFreq>(5) {
-
-          @Override
-          protected boolean lessThan(TermAndFreq a, TermAndFreq b) {
-            return a.freq > b.freq;
-          }
-        };
-    PriorityQueue<TermAndFreq> highFreqQueue =
-        new PriorityQueue<TestCommonTermsQuery.TermAndFreq>(5) {
-
-          @Override
-          protected boolean lessThan(TermAndFreq a, TermAndFreq b) {
-            return a.freq < b.freq;
-          }
-        };
+    TopNQueue<TermAndFreq> lowFreqQueue =
+        new TopNQueue<>(Comparator.<TermAndFreq>comparingInt(t -> t.freq).reversed(), 5);
+    TopNQueue<TermAndFreq> highFreqQueue = new TopNQueue<>(Comparator.comparingInt(t -> t.freq), 5);
     try {
       TermsEnum iterator = terms.iterator();
       while (iterator.next() != null) {
@@ -467,8 +454,8 @@ public class TestCommonTermsQuery extends LuceneTestCase {
       int lowFreq = lowFreqQueue.top().freq;
       int highFreq = highFreqQueue.top().freq;
       assumeTrue("unlucky index", highFreq - 1 > lowFreq);
-      List<TermAndFreq> highTerms = queueToList(highFreqQueue);
-      List<TermAndFreq> lowTerms = queueToList(lowFreqQueue);
+      List<TermAndFreq> highTerms = highFreqQueue.drainToSortedList();
+      List<TermAndFreq> lowTerms = lowFreqQueue.drainToSortedList();
 
       IndexSearcher searcher = newSearcher(reader);
       Occur lowFreqOccur = randomOccur(random());
@@ -511,14 +498,6 @@ public class TestCommonTermsQuery extends LuceneTestCase {
     } finally {
       IOUtils.close(reader, w, dir, analyzer);
     }
-  }
-
-  private static List<TermAndFreq> queueToList(PriorityQueue<TermAndFreq> queue) {
-    List<TermAndFreq> terms = new ArrayList<>();
-    while (queue.size() > 0) {
-      terms.add(queue.pop());
-    }
-    return terms;
   }
 
   private static class TermAndFreq {

@@ -20,7 +20,6 @@ import static org.apache.lucene.search.suggest.document.TopSuggestDocs.SuggestSc
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.index.LeafReaderContext;
@@ -106,7 +105,7 @@ public class TopSuggestDocsCollector extends SimpleCollector {
   public void finish() throws IOException {
     if (seenSurfaceForms != null) {
       // NOTE: this also clears the priorityQueue:
-      Collections.addAll(pendingResults, priorityQueue.getResults());
+      pendingResults.addAll(priorityQueue.getResults());
 
       // Deduplicate all hits: we already dedup'd efficiently within each segment by
       // truncating the FST top paths search, but across segments there may still be dups:
@@ -173,9 +172,9 @@ public class TopSuggestDocsCollector extends SimpleCollector {
           }
         }
       }
-      suggestScoreDocs = hits.toArray(new SuggestScoreDoc[0]);
+      suggestScoreDocs = hits.toArray(SuggestScoreDoc[]::new);
     } else {
-      suggestScoreDocs = priorityQueue.getResults();
+      suggestScoreDocs = priorityQueue.getResults().toArray(SuggestScoreDoc[]::new);
     }
 
     if (suggestScoreDocs.length > 0) {

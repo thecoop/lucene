@@ -24,7 +24,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.RandomAccess;
 import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.PriorityQueue;
+import org.apache.lucene.util.TopNQueue;
 
 /** Selects fragments of text that score best for the given set of highlight markers. */
 public class PassageSelector {
@@ -93,13 +93,7 @@ public class PassageSelector {
     int pqSize = Math.max(16, maxPassages);
 
     // Best passages so far.
-    PriorityQueue<Passage> pq =
-        new PriorityQueue<>(pqSize) {
-          @Override
-          protected boolean lessThan(Passage a, Passage b) {
-            return passageScorer.compare(a, b) < 0;
-          }
-        };
+    TopNQueue<Passage> pq = new TopNQueue<>(passageScorer, pqSize);
 
     markers = splitOrTruncateToWindows(markers, maxPassageWindow, permittedPassageRanges);
 
@@ -174,10 +168,7 @@ public class PassageSelector {
     // Collect from the priority queue (reverse the order so that highest-scoring are first).
     Passage[] passages;
     if (pq.size() > 0) {
-      passages = new Passage[pq.size()];
-      for (int i = pq.size(); --i >= 0; ) {
-        passages[i] = pq.pop();
-      }
+      passages = pq.drainToSortedList(passageScorer.reversed()).toArray(Passage[]::new);
     } else {
       // Handle the default, no highlighting markers case.
       passages = pickDefaultPassage(value, maxPassageWindow, maxPassages, permittedPassageRanges);

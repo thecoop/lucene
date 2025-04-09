@@ -18,7 +18,6 @@ package org.apache.lucene.search.suggest.tst;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -196,7 +195,7 @@ public class TSTLookup extends Lookup {
       for (TernaryTreeNode ttn : list) {
         queue.insertWithOverflow(new LookupResult(ttn.token, ((Number) ttn.val).longValue()));
       }
-      Collections.addAll(res, queue.getResults());
+      res.addAll(queue.getResults());
     } else {
       for (int i = 0; i < maxCnt; i++) {
         TernaryTreeNode ttn = list.get(i);
