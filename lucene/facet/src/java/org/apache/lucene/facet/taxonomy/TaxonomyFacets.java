@@ -19,7 +19,6 @@ package org.apache.lucene.facet.taxonomy;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -668,10 +667,8 @@ abstract class TaxonomyFacets extends Facets {
       ord = siblings.get(ord);
     }
 
-    List<DimValue> values = pq.drainToSortedList();
-
-    int resultSize = values.size();
-    FacetResult[] results = new FacetResult[resultSize];
+    List<DimValue> values = pq.drainToSortedListReversed();
+    List<FacetResult> results = new ArrayList<>(values.size());
 
     for (DimValue dimValue : values) {
       assert dimValue != null;
@@ -681,13 +678,13 @@ abstract class TaxonomyFacets extends Facets {
         topChildrenForPath = intermediateResults.get(dim);
       }
       if (topChildrenForPath == null) {
-        FacetsConfig.DimConfig dimConfig = config.getDimConfig(dim);
+        DimConfig dimConfig = config.getDimConfig(dim);
         topChildrenForPath = getTopChildrenForPath(dimConfig, dimValue.dimOrd, topNChildren);
       }
       FacetResult facetResult = createFacetResult(topChildrenForPath, dim);
       assert facetResult != null;
-      results[--resultSize] = facetResult;
+      results.add(facetResult);
     }
-    return Arrays.asList(results);
+    return results;
   }
 }

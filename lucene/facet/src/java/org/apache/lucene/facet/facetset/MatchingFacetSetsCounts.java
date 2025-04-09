@@ -179,18 +179,14 @@ public class MatchingFacetSetsCounts extends FacetCountsWithFilterQuery {
       }
     }
 
-    List<Entry> entries = pq.drainToSortedList();
+    List<Entry> entries = pq.drainToSortedListReversed();
 
-    // Remove any sentinel values in the case that we had fewer child labels with non-zero
-    // counts than the requested top-n:
-    if (childCount < entries.size()) {
-      entries = entries.subList(entries.size() - childCount, entries.size());
-    }
-
+    // only read childCount in case we had fewer child labels with non-zero counts than the
+    // requested top-n
     LabelAndValue[] labelValues = new LabelAndValue[Math.min(topN, childCount)];
-    for (int i = 0; i < entries.size(); i++) {
+    for (int i = 0; i < labelValues.length; i++) {
       Entry e = entries.get(i);
-      labelValues[entries.size() - i - 1] = new LabelAndValue(e.label, e.count);
+      labelValues[i] = new LabelAndValue(e.label, e.count);
     }
 
     return new FacetResult(dim, path, totCount, labelValues, childCount);

@@ -18,7 +18,6 @@ package org.apache.lucene.search.highlight;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Objects;
 import org.apache.lucene.analysis.Analyzer;
@@ -288,11 +287,7 @@ public class Highlighter {
       }
 
       // return the most relevant fragments
-      TextFragment[] frag =
-          fragQueue
-              .drainToSortedList(
-                  ((Comparator<TextFragment>) Highlighter::compareFragments).reversed())
-              .toArray(TextFragment[]::new);
+      TextFragment[] frag = fragQueue.drainToSortedListReversed().toArray(TextFragment[]::new);
 
       // merge any contiguous fragments to improve readability
       if (mergeContiguousFragments) {

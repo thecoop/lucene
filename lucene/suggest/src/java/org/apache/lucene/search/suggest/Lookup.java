@@ -139,14 +139,10 @@ public abstract class Lookup implements Accountable {
   /** A {@link PriorityQueue} collecting a fixed size of high priority {@link LookupResult} */
   public static final class LookupPriorityQueue extends TopNQueue<LookupResult> {
 
-    private static int compare(LookupResult a, LookupResult b) {
-      return Long.compare(a.value, b.value);
-    }
-
     // TODO: should we move this out of the interface into a utility class?
     /** Creates a new priority queue of the specified size. */
     public LookupPriorityQueue(int size) {
-      super(LookupPriorityQueue::compare, size);
+      super(Comparator.comparingLong(a -> a.value), size);
     }
 
     /**
@@ -155,8 +151,7 @@ public abstract class Lookup implements Accountable {
      * @return the top N results in descending order.
      */
     public List<LookupResult> getResults() {
-      return drainToSortedList(
-          ((Comparator<LookupResult>) LookupPriorityQueue::compare).reversed());
+      return drainToSortedListReversed();
     }
   }
 

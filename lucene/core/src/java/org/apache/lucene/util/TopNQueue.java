@@ -48,28 +48,32 @@ public class TopNQueue<T> {
         };
   }
 
-  public int size() {
+  private void checkQueueActive() {
     if (queue == null) throw new IllegalStateException("Queue has been drained");
+  }
+
+  public int size() {
+    checkQueueActive();
     return queue.size();
   }
 
   public T top() {
-    if (queue == null) throw new IllegalStateException("Queue has been drained");
+    checkQueueActive();
     return queue.top();
   }
 
   public T updateTop() {
-    if (queue == null) throw new IllegalStateException("Queue has been drained");
+    checkQueueActive();
     return queue.updateTop();
   }
 
   public T add(T element) {
-    if (queue == null) throw new IllegalStateException("Queue has been drained");
+    checkQueueActive();
     return queue.add(element);
   }
 
   public T insertWithOverflow(T element) {
-    if (queue == null) throw new IllegalStateException("Queue has been drained");
+    checkQueueActive();
     return queue.insertWithOverflow(element);
   }
 
@@ -77,7 +81,13 @@ public class TopNQueue<T> {
     return drainToSortedList(comp);
   }
 
+  public List<T> drainToSortedListReversed() {
+    return drainToSortedList(comp.reversed());
+  }
+
   public List<T> drainToSortedList(Comparator<T> comparator) {
+    checkQueueActive();
+
     @SuppressWarnings("unchecked")
     T[] array = (T[]) queue.getHeapArray();
     int endOffset = queue.size() + 1;

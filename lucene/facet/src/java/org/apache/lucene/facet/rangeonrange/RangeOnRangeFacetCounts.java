@@ -164,11 +164,11 @@ abstract class RangeOnRangeFacetCounts extends FacetCountsWithFilterQuery {
       }
     }
 
-    List<Entry> entries = pq.drainToSortedList();
+    List<Entry> entries = pq.drainToSortedListReversed();
     LabelAndValue[] results = new LabelAndValue[entries.size()];
     for (int i = 0; i < entries.size(); i++) {
       Entry entry = entries.get(i);
-      results[entries.size() - i - 1] = new LabelAndValue(entry.label, entry.count);
+      results[i] = new LabelAndValue(entry.label, entry.count);
     }
     return new FacetResult(dim, path, totCount, results, childCount);
   }

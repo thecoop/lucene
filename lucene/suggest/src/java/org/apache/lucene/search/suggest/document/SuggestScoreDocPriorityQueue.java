@@ -16,7 +16,6 @@
  */
 package org.apache.lucene.search.suggest.document;
 
-import java.util.Comparator;
 import java.util.List;
 import org.apache.lucene.search.suggest.Lookup;
 import org.apache.lucene.search.suggest.document.TopSuggestDocs.SuggestScoreDoc;
@@ -47,7 +46,6 @@ final class SuggestScoreDocPriorityQueue extends TopNQueue<SuggestScoreDoc> {
 
   /** Returns the top N results in descending order. */
   public List<SuggestScoreDoc> getResults() {
-    return drainToSortedList(
-        ((Comparator<SuggestScoreDoc>) SuggestScoreDocPriorityQueue::compare).reversed());
+    return drainToSortedListReversed();
   }
 }

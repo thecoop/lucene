@@ -402,10 +402,10 @@ public class SpellChecker implements java.io.Closeable {
       }
 
       // convert to array string
-      List<SuggestWord> suggests = sugQueue.drainToSortedList();
+      List<SuggestWord> suggests = sugQueue.drainToSortedListReversed();
       String[] list = new String[sugQueue.size()];
       for (int i = 0; i < suggests.size(); i++) {
-        list[suggests.size() - i - 1] = suggests.get(i).string;
+        list[i] = suggests.get(i).string;
       }
 
       return list;

@@ -18,7 +18,6 @@ package org.apache.lucene.facet.sortedset;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -211,10 +210,8 @@ abstract class AbstractSortedSetDocValueFacetCounts extends Facets {
       }
     }
 
-    List<DimValue> values = pq.drainToSortedList();
-
-    int resultSize = values.size();
-    FacetResult[] results = new FacetResult[resultSize];
+    List<DimValue> values = pq.drainToSortedListReversed();
+    List<FacetResult> results = new ArrayList<>(values.size());
 
     for (DimValue dimValue : values) {
       assert dimValue != null;
@@ -228,9 +225,9 @@ abstract class AbstractSortedSetDocValueFacetCounts extends Facets {
       FacetResult facetResult = createFacetResult(topChildrenForPath, dimValue.dim);
       // should not be null since only dims with non-zero values were considered earlier
       assert facetResult != null;
-      results[--resultSize] = facetResult;
+      results.add(facetResult);
     }
-    return Arrays.asList(results);
+    return results;
   }
 
   /** Were any counts actually computed? (They may not be if there are no hits, etc.) */
