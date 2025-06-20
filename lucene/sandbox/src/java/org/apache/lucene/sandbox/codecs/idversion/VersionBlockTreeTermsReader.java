@@ -180,8 +180,8 @@ public final class VersionBlockTreeTermsReader extends FieldsProducer {
       }
       indexIn.close();
     } catch (Throwable t) {
-        // this.close() will close in:
-        IOUtils.closeWhileSuppressingException(indexIn, this);
+      // this.close() will close in:
+      IOUtils.closeWhileSuppressingException(indexIn, this);
       throw t;
     }
   }
