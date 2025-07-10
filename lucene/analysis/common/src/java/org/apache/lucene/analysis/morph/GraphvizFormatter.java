@@ -18,6 +18,7 @@ package org.apache.lucene.analysis.morph;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 // TODO: would be nice to show 2nd best path in a diff't
 // color...
@@ -51,7 +52,7 @@ public class GraphvizFormatter<T extends MorphData> {
 
   // Backtraces another incremental fragment:
   public void onBacktrace(
-      DictionaryProvider<T> dictProvider,
+      Function<TokenType, Dictionary<? extends T>> dictProvider,
       Viterbi.WrappedPositionArray<? extends Viterbi.Position> positions,
       int lastBackTracePos,
       Viterbi.Position endPosData,
@@ -96,7 +97,7 @@ public class GraphvizFormatter<T extends MorphData> {
   }
 
   private String formatNodes(
-      DictionaryProvider<T> dictProvider,
+      Function<TokenType, Dictionary<? extends T>> dictProvider,
       Viterbi.WrappedPositionArray<? extends Viterbi.Position> positions,
       int startPos,
       Viterbi.Position endPosData,
@@ -138,7 +139,7 @@ public class GraphvizFormatter<T extends MorphData> {
           attrs = "";
         }
 
-        final Dictionary<? extends T> dict = dictProvider.get(posData.getBackType(idx));
+        final Dictionary<? extends T> dict = dictProvider.apply(posData.getBackType(idx));
         final int wordCost = dict.getWordCost(posData.getBackID(idx));
         final int bgCost =
             costs.get(
@@ -186,11 +187,5 @@ public class GraphvizFormatter<T extends MorphData> {
 
   private String getNodeID(int pos, int idx) {
     return pos + "." + idx;
-  }
-
-  /** {@link Dictionary} provider */
-  @FunctionalInterface
-  public interface DictionaryProvider<T extends MorphData> {
-    Dictionary<? extends T> get(TokenType type);
   }
 }
