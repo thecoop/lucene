@@ -16,6 +16,10 @@
  */
 package org.apache.lucene.tests.index;
 
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.not;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -436,7 +440,7 @@ public abstract class BaseMergePolicyTestCase extends LuceneTestCase {
         merges = mergePolicy.findMerges(MergeTrigger.SEGMENT_FLUSH, segmentInfos, mergeContext);
       }
       while (merges != null) {
-        assertTrue(merges.merges.size() > 0);
+        assertThat(merges.merges, not(empty()));
         assertMerge(mergePolicy, merges);
         for (OneMerge oneMerge : merges.merges) {
           segmentInfos =
@@ -564,7 +568,7 @@ public abstract class BaseMergePolicyTestCase extends LuceneTestCase {
       MergeSpecification merges =
           mergePolicy.findMerges(MergeTrigger.SEGMENT_FLUSH, segmentInfos, mergeContext);
       while (merges != null) {
-        assertTrue(merges.merges.size() > 0);
+        assertThat(merges.merges, not(empty()));
         assertMerge(mergePolicy, merges);
         for (OneMerge oneMerge : merges.merges) {
           segmentInfos =
@@ -582,6 +586,6 @@ public abstract class BaseMergePolicyTestCase extends LuceneTestCase {
     // have a write amplification up to log(numFlushes)/log(1.5). Greater values would indicate a
     // problem with the merge policy.
     final double maxAllowedWriteAmplification = Math.log(numFlushes) / Math.log(1.5);
-    assertTrue(writeAmplification < maxAllowedWriteAmplification);
+    assertThat(writeAmplification, lessThan(maxAllowedWriteAmplification));
   }
 }

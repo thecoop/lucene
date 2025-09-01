@@ -16,6 +16,10 @@
  */
 package org.apache.lucene.tests.index;
 
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.hasSize;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -131,9 +135,11 @@ public abstract class BaseSegmentInfoFormatTestCase extends BaseIndexFileFormatT
     codec.segmentInfoFormat().write(dir, info, IOContext.DEFAULT);
 
     Set<String> modifiedFiles = info.files();
-    assertTrue(modifiedFiles.containsAll(originalFiles));
-    assertTrue(
-        "did you forget to add yourself to files()", modifiedFiles.size() > originalFiles.size());
+    assertThat(modifiedFiles, hasItems(originalFiles.toArray(String[]::new)));
+    assertThat(
+        "did you forget to add yourself to files()",
+        modifiedFiles,
+        hasSize(greaterThan(originalFiles.size())));
 
     SegmentInfo info2 = codec.segmentInfoFormat().read(dir, "_123", id, IOContext.DEFAULT);
     assertEquals(info.files(), info2.files());

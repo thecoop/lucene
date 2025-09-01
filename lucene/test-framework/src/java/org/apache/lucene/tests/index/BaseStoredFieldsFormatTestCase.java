@@ -16,6 +16,12 @@
  */
 package org.apache.lucene.tests.index;
 
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
+
 import com.carrotsearch.randomizedtesting.generators.RandomNumbers;
 import com.carrotsearch.randomizedtesting.generators.RandomPicks;
 import com.carrotsearch.randomizedtesting.generators.RandomStrings;
@@ -26,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -212,22 +217,20 @@ public abstract class BaseStoredFieldsFormatTestCase extends BaseIndexFileFormat
     IndexReader r = maybeWrapWithMergingReader(DirectoryReader.open(w));
     StoredFields storedFields = r.storedFields();
     Document doc2 = storedFields.document(0);
-    Iterator<IndexableField> it = doc2.getFields().iterator();
-    assertTrue(it.hasNext());
-    Field f = (Field) it.next();
-    assertEquals(f.name(), "zzz");
-    assertEquals(f.stringValue(), "a b c");
+    var fields = doc2.getFields();
+    assertThat(fields, hasSize(3));
+    Field f = (Field) fields.get(0);
+    assertEquals("zzz", f.name());
+    assertEquals("a b c", f.stringValue());
 
-    assertTrue(it.hasNext());
-    f = (Field) it.next();
-    assertEquals(f.name(), "aaa");
-    assertEquals(f.stringValue(), "a b c");
+    f = (Field) fields.get(1);
+    assertEquals("aaa", f.name());
+    assertEquals("a b c", f.stringValue());
 
-    assertTrue(it.hasNext());
-    f = (Field) it.next();
-    assertEquals(f.name(), "zzz");
-    assertEquals(f.stringValue(), "1 2 3");
-    assertFalse(it.hasNext());
+    f = (Field) fields.get(2);
+    assertEquals("zzz", f.name());
+    assertEquals("1 2 3", f.stringValue());
+
     r.close();
     w.close();
     d.close();
@@ -243,7 +246,7 @@ public abstract class BaseStoredFieldsFormatTestCase extends BaseIndexFileFormat
     Document doc = new Document();
     Field f = new StoredField("binary", b, 10, 17);
     byte[] bx = f.binaryValue().bytes;
-    assertTrue(bx != null);
+    assertNotNull(bx);
     assertEquals(50, bx.length);
     assertEquals(10, f.binaryValue().offset);
     assertEquals(17, f.binaryValue().length);
@@ -256,7 +259,7 @@ public abstract class BaseStoredFieldsFormatTestCase extends BaseIndexFileFormat
     Document doc2 = storedFields.document(0);
     IndexableField f2 = doc2.getField("binary");
     b = f2.binaryValue().bytes;
-    assertTrue(b != null);
+    assertNotNull(b);
     assertEquals(17, b.length, 17);
     assertEquals(87, b[0]);
     ir.close();
@@ -321,7 +324,7 @@ public abstract class BaseStoredFieldsFormatTestCase extends BaseIndexFileFormat
       for (int docID = 0; docID < sub.numDocs(); docID++) {
         final Document doc = storedFields.document(docID);
         final Field f = (Field) doc.getField("nf");
-        assertTrue("got f=" + f, f instanceof StoredField);
+        assertThat(f, instanceOf(StoredField.class));
         assertEquals(docID, ids.nextDoc());
         assertEquals(answers[(int) ids.longValue()], f.numericValue());
         assertEquals(typeAnswers[(int) ids.longValue()], f.numericValue().getClass());
@@ -422,7 +425,7 @@ public abstract class BaseStoredFieldsFormatTestCase extends BaseIndexFileFormat
     for (int i = 0; i < numDocs; ++i) {
       final Document doc = storedFields.document(i);
       assertNotNull(doc);
-      assertTrue(doc.getFields().isEmpty());
+      assertThat(doc.getFields(), empty());
     }
     rd.close();
 
@@ -585,7 +588,7 @@ public abstract class BaseStoredFieldsFormatTestCase extends BaseIndexFileFormat
 
     final DirectoryReader ir = maybeWrapWithMergingReader(DirectoryReader.open(dir));
     StoredFields storedFields = ir.storedFields();
-    assertTrue(ir.numDocs() > 0);
+    assertThat(ir.numDocs(), greaterThan(0));
     int numDocs = 0;
     for (int i = 0; i < ir.maxDoc(); ++i) {
       final Document doc = storedFields.document(i);
@@ -602,7 +605,7 @@ public abstract class BaseStoredFieldsFormatTestCase extends BaseIndexFileFormat
         assertArrayEquals(arr, arr2);
       }
     }
-    assertTrue(ir.numDocs() <= numDocs);
+    assertThat(ir.numDocs(), lessThanOrEqualTo(numDocs));
     ir.close();
 
     iw.deleteAll();

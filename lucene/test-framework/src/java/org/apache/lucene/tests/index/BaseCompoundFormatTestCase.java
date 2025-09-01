@@ -16,6 +16,8 @@
  */
 package org.apache.lucene.tests.index;
 
+import static org.hamcrest.Matchers.containsString;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -817,9 +819,10 @@ public abstract class BaseCompoundFormatTestCase extends BaseIndexFileFormatTest
     Directory cfs = si.getCodec().compoundFormat().getCompoundReader(dir, si);
     IndexInput in = cfs.openInput(subFile, IOContext.DEFAULT);
     String desc = in.toString();
-    assertTrue(
-        "resource description hides that it's inside a compound file: " + desc,
-        desc.contains("[slice=" + subFile + "]"));
+    assertThat(
+        "Resource description should include compound file",
+        desc,
+        containsString("[slice=" + subFile + "]"));
     cfs.close();
     dir.close();
   }
@@ -841,7 +844,7 @@ public abstract class BaseCompoundFormatTestCase extends BaseIndexFileFormatTest
         expectThrows(
             CorruptIndexException.class,
             () -> si.getCodec().compoundFormat().write(dir, si, IOContext.DEFAULT));
-    assertTrue(e.getMessage().contains("codec header mismatch"));
+    assertThat(e.getMessage(), containsString("codec header mismatch"));
     dir.close();
   }
 
@@ -869,7 +872,7 @@ public abstract class BaseCompoundFormatTestCase extends BaseIndexFileFormatTest
         expectThrows(
             CorruptIndexException.class,
             () -> si.getCodec().compoundFormat().write(dir, si, IOContext.DEFAULT));
-    assertTrue(e.getMessage().contains("checksum failed (hardware problem?)"));
+    assertThat(e.getMessage(), containsString("checksum failed (hardware problem?)"));
     dir.close();
   }
 

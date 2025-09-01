@@ -16,6 +16,8 @@
  */
 package org.apache.lucene.tests.index;
 
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -621,7 +623,8 @@ public abstract class ThreadedIndexingAndSearchingTestCase extends LuceneTestCas
       thread.join();
     }
 
-    assertTrue(writer.getSegmentInfosCounter() >= maxAdvancedSegmentCounter.get());
+    assertThat(
+        writer.getSegmentInfosCounter(), greaterThanOrEqualTo(maxAdvancedSegmentCounter.get()));
 
     if (VERBOSE) {
       System.out.println(

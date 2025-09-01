@@ -17,6 +17,8 @@
 package org.apache.lucene.tests.index;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.not;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -96,7 +98,7 @@ public class BaseTestCheckIndex extends LuceneTestCase {
 
     assertNotNull(seg.diagnostics.get("java.runtime.version"));
 
-    assertTrue(seg.diagnostics.size() > 0);
+    assertThat(seg.diagnostics, not(anEmptyMap()));
     final List<String> onlySegments = new ArrayList<>();
     onlySegments.add("_0");
 

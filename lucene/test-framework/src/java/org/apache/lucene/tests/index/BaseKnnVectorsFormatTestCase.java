@@ -20,6 +20,14 @@ import static com.carrotsearch.randomizedtesting.RandomizedTest.randomIntBetween
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.lucene.index.VectorSimilarityFunction.DOT_PRODUCT;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.oneOf;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -422,8 +430,8 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
         fieldWriter.addValue(i, randomVector(dim));
       }
       final long ramBytesUsed2 = writer.ramBytesUsed();
-      assertTrue(ramBytesUsed2 > ramBytesUsed);
-      assertTrue(ramBytesUsed2 > (long) dim * numDocs * Float.BYTES);
+      assertThat(ramBytesUsed2, greaterThan(ramBytesUsed));
+      assertThat(ramBytesUsed2, greaterThan((long) dim * numDocs * Float.BYTES));
     }
     dir.close();
   }
@@ -523,7 +531,7 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
           assertEquals(0, iterator.nextDoc());
           // The merge order is randomized, we might get 0 first, or 1
           float value = vectorValues.vectorValue(0)[0];
-          assertTrue(value == 0 || value == 1);
+          assertThat(value, oneOf(0, 1));
           assertEquals(1, iterator.nextDoc());
           value += vectorValues.vectorValue(1)[0];
           assertEquals(1, value, 0);
@@ -701,9 +709,9 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
               new float[getVectorsMaxDimensions("f") + 1],
               VectorSimilarityFunction.DOT_PRODUCT));
       Exception exc = expectThrows(IllegalArgumentException.class, () -> w.addDocument(doc));
-      assertTrue(
-          exc.getMessage()
-              .contains("vector's dimensions must be <= [" + getVectorsMaxDimensions("f") + "]"));
+      assertThat(
+          exc.getMessage(),
+          containsString("vector's dimensions must be <= [" + getVectorsMaxDimensions("f") + "]"));
 
       Document doc2 = new Document();
       doc2.add(new KnnFloatVectorField("f", new float[2], VectorSimilarityFunction.DOT_PRODUCT));
@@ -716,12 +724,14 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
               new float[getVectorsMaxDimensions("f") + 1],
               VectorSimilarityFunction.DOT_PRODUCT));
       exc = expectThrows(IllegalArgumentException.class, () -> w.addDocument(doc3));
-      assertTrue(
-          exc.getMessage()
-                  .contains("Inconsistency of field data structures across documents for field [f]")
-              || exc.getMessage()
-                  .contains(
-                      "vector's dimensions must be <= [" + getVectorsMaxDimensions("f") + "]"));
+      assertThat(
+          exc.getMessage(),
+          either(
+                  containsString(
+                      "Inconsistency of field data structures across documents for field [f]"))
+              .or(
+                  containsString(
+                      "vector's dimensions must be <= [" + getVectorsMaxDimensions("f") + "]")));
       w.flush();
 
       Document doc4 = new Document();
@@ -731,9 +741,9 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
               new float[getVectorsMaxDimensions("f") + 1],
               VectorSimilarityFunction.DOT_PRODUCT));
       exc = expectThrows(IllegalArgumentException.class, () -> w.addDocument(doc4));
-      assertTrue(
-          exc.getMessage()
-              .contains("vector's dimensions must be <= [" + getVectorsMaxDimensions("f") + "]"));
+      assertThat(
+          exc.getMessage(),
+          containsString("vector's dimensions must be <= [" + getVectorsMaxDimensions("f") + "]"));
     }
   }
 
@@ -993,7 +1003,7 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
           while (iterator.nextDoc() != NO_MORE_DOCS) {
             if (!(valuesIterator.nextDoc() != NO_MORE_DOCS)) break;
             float score = scorer.score();
-            assertTrue(score >= 0f);
+            assertThat(score, greaterThanOrEqualTo(0f));
             assertEquals(iterator.docID(), valuesIterator.docID());
           }
           // verify that a new scorer can be obtained after iteration
@@ -1054,7 +1064,7 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
           while (iterator.nextDoc() != NO_MORE_DOCS) {
             if (!(valuesIterator.nextDoc() != NO_MORE_DOCS)) break;
             float score = scorer.score();
-            assertTrue(score >= 0f);
+            assertThat(score, greaterThanOrEqualTo(0f));
             assertEquals(iterator.docID(), valuesIterator.docID());
           }
           // verify that a new scorer can be obtained after iteration
@@ -1503,10 +1513,10 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
                       visitedLimit);
           assertEquals(TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO, results.totalHits.relation());
           int size = Lucene99HnswVectorsReader.EXHAUSTIVE_BULK_SCORE_ORDS;
-          assertTrue(
-              visitedLimit == results.totalHits.value()
-                  || ((visitedLimit + size - 1) / size) * ((long) size)
-                      == results.totalHits.value());
+          assertThat(
+              results.totalHits.value(),
+              either(equalTo((long) visitedLimit))
+                  .or(equalTo(((visitedLimit + size - 1) / size) * size)));
 
           // check the limit is not hit when it clearly exceeds the number of vectors
           k = vectorValues.size();
@@ -1520,7 +1530,7 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
                       AcceptDocs.fromLiveDocs(liveDocs, ctx.reader().maxDoc()),
                       visitedLimit);
           assertEquals(TotalHits.Relation.EQUAL_TO, results.totalHits.relation());
-          assertTrue(results.totalHits.value() <= visitedLimit);
+          assertThat(results.totalHits.value(), lessThanOrEqualTo((long) visitedLimit));
           assertOffHeapByteSize(ctx.reader(), fieldName);
         }
       }
@@ -1607,7 +1617,8 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
                       Integer.MAX_VALUE);
           assertEquals(Math.min(k, size), results.scoreDocs.length);
           for (int i = 0; i < k - 1; i++) {
-            assertTrue(results.scoreDocs[i].score >= results.scoreDocs[i + 1].score);
+            assertThat(
+                results.scoreDocs[i + 1].score, lessThanOrEqualTo(results.scoreDocs[i].score));
           }
           assertOffHeapByteSize(ctx.reader(), fieldName);
         }
@@ -1737,7 +1748,7 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
       assertEquals(2, segStatus.vectorValuesStatus.totalKnnVectorFields);
 
       // Make sure CheckIndex in fact declares that it is testing vectors!
-      assertTrue(output.toString(UTF_8).contains("test: vectors..."));
+      assertThat(output.toString(UTF_8), containsString("test: vectors..."));
     }
   }
 
@@ -1784,7 +1795,7 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
           while (++cur < vectorValues.size() + 1) {
             vectorDocs[cur] = iterator.nextDoc();
             if (cur != 0) {
-              assertTrue(vectorDocs[cur] > vectorDocs[cur - 1]);
+              assertThat(vectorDocs[cur], greaterThan(vectorDocs[cur - 1]));
             }
           }
           vectorValues = r.getFloatVectorValues(fieldName);
@@ -2154,19 +2165,19 @@ public abstract class BaseKnnVectorsFormatTestCase extends BaseIndexFileFormatTe
         if (getNumVectors(knnVectorsReader, fieldInfo) == 0) {
           assertEquals(0L, totalByteSize);
         } else {
-          assertTrue(totalByteSize > 0);
-          assertTrue(offHeap.get("vec") > 0L);
+          assertThat(totalByteSize, greaterThan(0L));
+          assertThat(offHeap.get("vec"), greaterThan(0L));
 
           if (hasHNSW(knnVectorsReader, fieldInfo)) {
-            assertTrue(offHeap.get("vex") > 0L);
+            assertThat(offHeap.get("vex"), greaterThan(0L));
             var quant = offHeap.getOrDefault("veq", offHeap.get("veb"));
-            assertTrue(quant == null || quant > 0L);
+            assertThat(quant, either(nullValue(Long.class)).or(greaterThan(0L)));
           } else {
-            assertTrue(offHeap.get("vex") == null);
+            assertThat(offHeap.get("vex"), nullValue());
           }
 
           if (hasQuantized(knnVectorsReader, fieldInfo)) {
-            assertTrue(offHeap.getOrDefault("veq", offHeap.get("veb")) > 0L);
+            assertThat(offHeap.getOrDefault("veq", offHeap.get("veb")), greaterThan(0L));
           }
         }
       }

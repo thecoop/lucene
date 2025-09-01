@@ -17,6 +17,7 @@
 package org.apache.lucene.tests.index;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.hamcrest.Matchers.empty;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -967,7 +968,7 @@ public abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
     System.out.println(Arrays.toString(dir.listAll()));
     unreadFiles.removeAll(readBytesMap.keySet());
     unreadFiles.remove(IndexWriter.WRITE_LOCK_NAME);
-    assertTrue("Some files have not been open: " + unreadFiles, unreadFiles.isEmpty());
+    assertThat(unreadFiles, empty());
 
     List<String> messages = new ArrayList<>();
     for (Map.Entry<String, FixedBitSet> entry : readBytesMap.entrySet()) {
@@ -986,7 +987,7 @@ public abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
                 + " bytes) was not read.");
       }
     }
-    assertTrue(String.join("\n", messages), messages.isEmpty());
+    assertThat(messages, empty());
     reader.close();
     dir.close();
   }

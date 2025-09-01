@@ -17,6 +17,9 @@
 package org.apache.lucene.tests.index;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -277,9 +280,9 @@ public abstract class BasePointsFormatTestCase extends BaseIndexFileFormatTestCa
         } catch (IllegalArgumentException iae) {
           // This just means we got a too-small maxMB for the maxPointsInLeafNode; just retry w/
           // more heap
-          assertTrue(
-              iae.getMessage()
-                  .contains("either increase maxMBSortInHeap or decrease maxPointsInLeafNode"));
+          assertThat(
+              iae.getMessage(),
+              containsString("either increase maxMBSortInHeap or decrease maxPointsInLeafNode"));
         } catch (IOException ioe) {
           done = handlePossiblyFakeException(ioe);
         }
@@ -608,9 +611,9 @@ public abstract class BasePointsFormatTestCase extends BaseIndexFileFormatTestCa
         } catch (IllegalArgumentException iae) {
           iae.printStackTrace();
           // This just means we got a too-small maxMB for the maxPointsInLeafNode; just retry
-          assertTrue(
-              iae.getMessage()
-                  .contains("either increase maxMBSortInHeap or decrease maxPointsInLeafNode"));
+          assertThat(
+              iae.getMessage(),
+              containsString("either increase maxMBSortInHeap or decrease maxPointsInLeafNode"));
         }
       }
     }
@@ -884,11 +887,11 @@ public abstract class BasePointsFormatTestCase extends BaseIndexFileFormatTestCa
         System.arraycopy(minValues, dim * numBytesPerDim, scratch, 0, numBytesPerDim);
         // System.out.println("dim=" + dim + " expectedMin=" + new BytesRef(expectedMinValues[dim])
         // + " min=" + new BytesRef(scratch));
-        assertTrue(Arrays.equals(expectedMinValues[dim], scratch));
+        assertArrayEquals(expectedMinValues[dim], scratch);
         System.arraycopy(maxValues, dim * numBytesPerDim, scratch, 0, numBytesPerDim);
         // System.out.println("dim=" + dim + " expectedMax=" + new BytesRef(expectedMaxValues[dim])
         // + " max=" + new BytesRef(scratch));
-        assertTrue(Arrays.equals(expectedMaxValues[dim], scratch));
+        assertArrayEquals(expectedMaxValues[dim], scratch);
       }
 
       int iters = atLeast(100);
@@ -1315,9 +1318,9 @@ public abstract class BasePointsFormatTestCase extends BaseIndexFileFormatTestCa
                   return Relation.CELL_INSIDE_QUERY;
                 }
               });
-      assertTrue(docs <= estimatedPointCount);
-      assertTrue(docs <= maxDoc);
-      assertTrue(docs >= estimatedPointCount / (size / docCount));
+      assertThat(docs, lessThanOrEqualTo(estimatedPointCount));
+      assertThat(docs, lessThanOrEqualTo((long) maxDoc));
+      assertThat(docs, greaterThanOrEqualTo(estimatedPointCount / (size / docCount)));
     }
   }
 

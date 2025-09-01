@@ -18,6 +18,8 @@ package org.apache.lucene.tests.index;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.oneOf;
 
 import com.carrotsearch.randomizedtesting.generators.RandomPicks;
 import java.io.ByteArrayOutputStream;
@@ -1212,7 +1214,7 @@ public abstract class LegacyBaseDocValuesFormatTestCase extends BaseIndexFileFor
     byte[] mybytes = new byte[20];
     assertEquals(0, dv.nextDoc());
     assertEquals("boo!", dv.lookupOrd(dv.ordValue()).utf8ToString());
-    assertFalse(dv.lookupOrd(dv.ordValue()).bytes == mybytes);
+    assertFalse("Array is empty", Arrays.equals(dv.lookupOrd(dv.ordValue()).bytes, mybytes));
 
     ireader.close();
     directory.close();
@@ -1402,7 +1404,7 @@ public abstract class LegacyBaseDocValuesFormatTestCase extends BaseIndexFileFor
       for (int i = 0; i < r.maxDoc(); i++) {
         String storedValue = storedFields.document(i).get("stored");
         if (storedValue == null) {
-          assertTrue(docValues.docID() > i);
+          assertThat(docValues.docID(), greaterThan(i));
         } else {
           assertEquals(i, docValues.docID());
           assertEquals(Long.parseLong(storedValue), docValues.longValue());
@@ -1680,7 +1682,7 @@ public abstract class LegacyBaseDocValuesFormatTestCase extends BaseIndexFileFor
       for (int i = 0; i < r.maxDoc(); i++) {
         BytesRef binaryValue = storedFields.document(i).getBinaryValue("stored");
         if (binaryValue == null) {
-          assertTrue(docValues.docID() > i);
+          assertThat(docValues.docID(), greaterThan(i));
         } else {
           assertEquals(i, docValues.docID());
           assertEquals(binaryValue, docValues.binaryValue());
@@ -1703,7 +1705,7 @@ public abstract class LegacyBaseDocValuesFormatTestCase extends BaseIndexFileFor
       for (int i = 0; i < r.maxDoc(); i++) {
         BytesRef binaryValue = storedFields.document(i).getBinaryValue("stored");
         if (binaryValue == null) {
-          assertTrue(docValues.docID() > i);
+          assertThat(docValues.docID(), greaterThan(i));
         } else {
           assertEquals(i, docValues.docID());
           assertEquals(binaryValue, docValues.binaryValue());
@@ -1808,7 +1810,7 @@ public abstract class LegacyBaseDocValuesFormatTestCase extends BaseIndexFileFor
       for (int i = 0; i < r.maxDoc(); i++) {
         BytesRef binaryValue = storedFields.document(i).getBinaryValue("stored");
         if (binaryValue == null) {
-          assertTrue(docValues.docID() > i);
+          assertThat(docValues.docID(), greaterThan(i));
         } else {
           assertEquals(i, docValues.docID());
           assertEquals(binaryValue, docValues.lookupOrd(docValues.ordValue()));
@@ -1831,7 +1833,7 @@ public abstract class LegacyBaseDocValuesFormatTestCase extends BaseIndexFileFor
       for (int i = 0; i < r.maxDoc(); i++) {
         BytesRef binaryValue = storedFields.document(i).getBinaryValue("stored");
         if (binaryValue == null) {
-          assertTrue(docValues.docID() > i);
+          assertThat(docValues.docID(), greaterThan(i));
         } else {
           assertEquals(i, docValues.docID());
           assertEquals(binaryValue, docValues.lookupOrd(docValues.ordValue()));
@@ -3150,7 +3152,7 @@ public abstract class LegacyBaseDocValuesFormatTestCase extends BaseIndexFileFor
       for (int j = 0; j < 5; j++) {
         assertEquals(j, values.nextDoc());
         BytesRef result = values.binaryValue();
-        assertTrue(result.length == 0 || result.length == 1 << i);
+        assertThat(result.length, oneOf(0, 1 << i));
       }
       r.close();
       dir.close();

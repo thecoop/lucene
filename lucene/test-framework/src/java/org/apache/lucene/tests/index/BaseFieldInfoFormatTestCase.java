@@ -84,8 +84,8 @@ public abstract class BaseFieldInfoFormatTestCase extends BaseIndexFileFormatTes
     FieldInfos infos2 = codec.fieldInfosFormat().read(dir, segmentInfo, "", IOContext.DEFAULT);
     assertEquals(1, infos2.size());
     assertNotNull(infos2.fieldInfo("field"));
-    assertTrue(infos2.fieldInfo("field").getIndexOptions() != IndexOptions.NONE);
-    assertFalse(infos2.fieldInfo("field").getDocValuesType() != DocValuesType.NONE);
+    assertNotEquals(IndexOptions.NONE, infos2.fieldInfo("field").getIndexOptions());
+    assertEquals(DocValuesType.NONE, infos2.fieldInfo("field").getDocValuesType());
     assertFalse(infos2.fieldInfo("field").omitsNorms());
     assertFalse(infos2.fieldInfo("field").hasPayloads());
     assertFalse(infos2.fieldInfo("field").hasTermVectors());
