@@ -31,6 +31,12 @@ import java.util.Set;
  */
 public final class NamedSPILoader<S extends NamedSPILoader.NamedSPI> implements Iterable<S> {
 
+  private static final NamedSPIResolver resolver;
+
+  static {
+    resolver = ServiceLoader.load(NamedSPIResolver.class, null).findFirst().orElse(ServiceLoader::load);
+  }
+
   private volatile Map<String, S> services = Collections.emptyMap();
   private final Class<S> clazz;
 
@@ -65,7 +71,7 @@ public final class NamedSPILoader<S extends NamedSPILoader.NamedSPI> implements 
   public void reload(ClassLoader classloader) {
     Objects.requireNonNull(classloader, "classloader");
     final LinkedHashMap<String, S> services = new LinkedHashMap<>(this.services);
-    for (final S service : ServiceLoader.load(clazz, classloader)) {
+    for (final S service : resolver.resolve(clazz, classloader)) {
       final String name = service.getName();
       // only add the first one for each name, later services will be ignored
       // this allows to place services before others in classpath to make

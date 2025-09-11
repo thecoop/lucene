@@ -103,4 +103,5 @@ module org.apache.lucene.core {
   uses org.apache.lucene.codecs.KnnVectorsFormat;
   uses org.apache.lucene.codecs.PostingsFormat;
   uses org.apache.lucene.index.SortFieldProvider;
+  uses org.apache.lucene.util.NamedSPIResolver;
 }
