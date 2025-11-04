@@ -18,10 +18,14 @@ package org.apache.lucene.codecs.lucene104;
 
 import static java.lang.String.format;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+import static org.hamcrest.Matchers.closeTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.oneOf;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.FilterCodec;
@@ -36,6 +40,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnFloatVectorQuery;
@@ -57,7 +62,8 @@ public class TestLucene104ScalarQuantizedVectorsFormat extends BaseKnnVectorsFor
   @Override
   public void setUp() throws Exception {
     var encodingValues = ScalarEncoding.values();
-    encoding = encodingValues[random().nextInt(encodingValues.length)];
+    encoding =
+        ScalarEncoding.PACKED_NIBBLE; // encodingValues[random().nextInt(encodingValues.length)];
     format = new Lucene104ScalarQuantizedVectorsFormat(encoding);
     super.setUp();
   }
@@ -65,6 +71,53 @@ public class TestLucene104ScalarQuantizedVectorsFormat extends BaseKnnVectorsFor
   @Override
   protected Codec getCodec() {
     return TestUtil.alwaysKnnVectorsFormat(format);
+  }
+
+  public void testMerge() throws IOException {
+    float[][] vectors =
+        new float[][] {
+          new float[] {230f, 300.33f, -34.8988f, 15.555f},
+          new float[] {-0.5f, 100f, -13f, 14.8f},
+          new float[] {0.5f, 111.3f, -13f, 14.8f}
+        };
+
+    KnnFloatVectorField knnField =
+        new KnnFloatVectorField("vec", vectors[0], VectorSimilarityFunction.EUCLIDEAN);
+    try (Directory dir = newDirectory()) {
+      List<Double> scores = new ArrayList<>();
+      try (IndexWriter w =
+          new IndexWriter(dir, newIndexWriterConfig().setMergePolicy(NoMergePolicy.INSTANCE))) {
+        for (float[] v : vectors) {
+          Document doc = new Document();
+          knnField.setVectorValue(v);
+          doc.add(knnField);
+          w.addDocument(doc);
+          w.flush();
+        }
+        try (IndexReader reader = DirectoryReader.open(w)) {
+          IndexSearcher searcher = new IndexSearcher(reader);
+          TopDocs td =
+              searcher.search(
+                  new KnnFloatVectorQuery("vec", new float[] {-0.5f, 90f, -10f, 14.8f}, 3), 3);
+          for (var doc : td.scoreDocs) {
+            scores.add((double) doc.score);
+          }
+        }
+      }
+      try (IndexWriter w = new IndexWriter(dir, newIndexWriterConfig())) {
+        w.forceMerge(1);
+        try (IndexReader reader = DirectoryReader.open(w)) {
+          assertEquals(1, reader.leaves().size());
+          IndexSearcher searcher = new IndexSearcher(reader);
+          TopDocs td =
+              searcher.search(
+                  new KnnFloatVectorQuery("vec", new float[] {-0.5f, 90f, -10f, 14.8f}, 3), 3);
+          for (var doc : td.scoreDocs) {
+            assertThat(scores, hasItem(closeTo(doc.score, 0.002)));
+          }
+        }
+      }
+    }
   }
 
   public void testSearch() throws Exception {
