@@ -19,20 +19,23 @@ package org.apache.lucene.codecs.lucene104;
 import static java.lang.String.format;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.hamcrest.Matchers.closeTo;
-import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.oneOf;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
 import org.apache.lucene.document.KnnFloatVectorField;
+import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.IndexReader;
@@ -76,20 +79,25 @@ public class TestLucene104ScalarQuantizedVectorsFormat extends BaseKnnVectorsFor
   public void testMerge() throws IOException {
     float[][] vectors =
         new float[][] {
-          new float[] {230f, 300.33f, -34.8988f, 15.555f},
-          new float[] {-0.5f, 100f, -13f, 14.8f},
-          new float[] {0.5f, 111.3f, -13f, 14.8f}
+          new float[] {130, 115, -1.02f, 15.555f},
+          new float[] {-0.5f, 50, -1, 1},
+          new float[] {-0.5f, 11, 0, 12}
         };
 
     KnnFloatVectorField knnField =
         new KnnFloatVectorField("vec", vectors[0], VectorSimilarityFunction.EUCLIDEAN);
+    StringField idField = new StringField("id", "0", Field.Store.YES);
+
     try (Directory dir = newDirectory()) {
-      List<Double> scores = new ArrayList<>();
+      Map<String, Double> docScores = new HashMap<>();
       try (IndexWriter w =
           new IndexWriter(dir, newIndexWriterConfig().setMergePolicy(NoMergePolicy.INSTANCE))) {
-        for (float[] v : vectors) {
+        for (int i = 0; i < vectors.length; i++) {
+          float[] v = vectors[i];
           Document doc = new Document();
+          idField.setStringValue(Integer.toString(i));
           knnField.setVectorValue(v);
+          doc.add(idField);
           doc.add(knnField);
           w.addDocument(doc);
           w.flush();
@@ -98,9 +106,16 @@ public class TestLucene104ScalarQuantizedVectorsFormat extends BaseKnnVectorsFor
           IndexSearcher searcher = new IndexSearcher(reader);
           TopDocs td =
               searcher.search(
-                  new KnnFloatVectorQuery("vec", new float[] {-0.5f, 90f, -10f, 14.8f}, 3), 3);
+                  new KnnFloatVectorQuery("vec", new float[] {-0.5f, 11.0f, 0, 12}, 3), 2);
           for (var doc : td.scoreDocs) {
-            scores.add((double) doc.score);
+            docScores.put(
+                reader
+                    .storedFields()
+                    .document(doc.doc)
+                    .getField("id")
+                    .storedValue()
+                    .getStringValue(),
+                (double) doc.score);
           }
         }
       }
@@ -111,9 +126,24 @@ public class TestLucene104ScalarQuantizedVectorsFormat extends BaseKnnVectorsFor
           IndexSearcher searcher = new IndexSearcher(reader);
           TopDocs td =
               searcher.search(
-                  new KnnFloatVectorQuery("vec", new float[] {-0.5f, 90f, -10f, 14.8f}, 3), 3);
+                  new KnnFloatVectorQuery("vec", new float[] {-0.5f, 11.0f, 0, 12}, 3), 2);
+
+          Map<String, Double> mergedDocScores = new HashMap<>();
           for (var doc : td.scoreDocs) {
-            assertThat(scores, hasItem(closeTo(doc.score, 0.002)));
+            mergedDocScores.put(
+                reader
+                    .storedFields()
+                    .document(doc.doc)
+                    .getField("id")
+                    .storedValue()
+                    .getStringValue(),
+                (double) doc.score);
+          }
+          for (var ms : docScores.entrySet()) {
+            assertThat(
+                mergedDocScores + " != " + docScores,
+                mergedDocScores,
+                hasEntry(equalTo(ms.getKey()), closeTo(ms.getValue(), 0.002)));
           }
         }
       }
