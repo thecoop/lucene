@@ -102,11 +102,12 @@ public class TestLucene104ScalarQuantizedVectorsFormat extends BaseKnnVectorsFor
           w.addDocument(doc);
           w.flush();
         }
+
         try (IndexReader reader = DirectoryReader.open(w)) {
           IndexSearcher searcher = new IndexSearcher(reader);
           TopDocs td =
               searcher.search(
-                  new KnnFloatVectorQuery("vec", new float[] {-0.5f, 11.0f, 0, 12}, 3), 2);
+                  new KnnFloatVectorQuery("vec", new float[] {-0.5f, 11.0f, 0, 12}, 3), 3);
           for (var doc : td.scoreDocs) {
             docScores.put(
                 reader
@@ -126,7 +127,7 @@ public class TestLucene104ScalarQuantizedVectorsFormat extends BaseKnnVectorsFor
           IndexSearcher searcher = new IndexSearcher(reader);
           TopDocs td =
               searcher.search(
-                  new KnnFloatVectorQuery("vec", new float[] {-0.5f, 11.0f, 0, 12}, 3), 2);
+                  new KnnFloatVectorQuery("vec", new float[] {-0.5f, 11.0f, 0, 12}, 3), 3);
 
           Map<String, Double> mergedDocScores = new HashMap<>();
           for (var doc : td.scoreDocs) {
