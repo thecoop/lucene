@@ -148,11 +148,6 @@ public class TestInfoStream extends LuceneTestCase {
     }
     assertTrue("init message not found", foundInit);
     assertEquals(2, flushedCount);
-    if (mergedCount == 0) {
-      for (String message: infoStream) {
-        System.out.print(message);
-      }
-    }
     assertEquals(1, mergedCount);
   }
 }
