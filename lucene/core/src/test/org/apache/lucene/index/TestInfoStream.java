@@ -102,7 +102,7 @@ public class TestInfoStream extends LuceneTestCase {
           public void close() throws IOException {}
 
           @Override
-          public void message(String component, String message) {
+          public synchronized void message(String component, String message) {
             if (components.contains(component)) {
               infoStream.add(String.format(Locale.ROOT, "[%s] %s\n", component, message));
             }
@@ -148,6 +148,11 @@ public class TestInfoStream extends LuceneTestCase {
     }
     assertTrue("init message not found", foundInit);
     assertEquals(2, flushedCount);
+    if (mergedCount == 0) {
+      for (String message: infoStream) {
+        System.out.print(message);
+      }
+    }
     assertEquals(1, mergedCount);
   }
 }
