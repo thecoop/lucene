@@ -235,6 +235,8 @@ Other
 
 * GITHUB#15949: Use junit5 engine vintage runner to run junit4 tests. (Dawid Weiss)
 
+* GITHUB#15893: Refactor to move common SHOULD/MUST dedup logic inside BooleanQuery into a common function. (Sagar Upadhyaya)
+
 ======================= Lucene 10.5.0 =======================
 
 API Changes
