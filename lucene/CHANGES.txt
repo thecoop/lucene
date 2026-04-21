@@ -394,6 +394,8 @@ Other
 
 * GITHUB#15951: Fix WindowsFS onClose race condition (Szymon Bialkowski)
 
+* GITHUB#15960: Move parent field from DWPT to IndexingChain. (Tim Brooks)
+
 ======================= Lucene 10.4.0 =======================
 
 API Changes
