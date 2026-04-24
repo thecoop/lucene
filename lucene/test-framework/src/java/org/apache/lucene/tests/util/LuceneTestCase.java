@@ -1576,10 +1576,6 @@ public abstract class LuceneTestCase extends Assert {
         }
       }
     }
-    // nocommit dial back the frequency of this:
-    if (!newType.storeTermVectors() && true /*random.nextBoolean()*/) {
-      // can't use TERM_DOC with term vectors
-    }
     newType.freeze();
     fieldToType.put(name, newType);
 
