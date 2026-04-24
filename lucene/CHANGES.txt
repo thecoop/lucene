@@ -261,6 +261,9 @@ API Changes
 * GITHUB#15803: Add ReaderUtil#partitionByLeaf to partition doc IDs from
   ScoreDoc hits by leaf reader. (Zihan Xu)
 
+* GITHUB#15584: Add support for termdoc fields that use custom term freqs (via IndexOptions.DOCS_AND_CUSTOM_FREQS).
+  IndexWriter counts their terms rather than summing their freqs.  Use
+
 New Features
 ---------------------
 
