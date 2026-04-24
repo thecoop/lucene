@@ -1695,7 +1695,7 @@ public abstract class BasePostingsFormatTestCase extends BaseIndexFileFormatTest
   @Override
   protected void addRandomFields(Document doc) {
     for (IndexOptions opts : IndexOptions.values()) {
-      if (opts == IndexOptions.NONE) {
+      if (opts == IndexOptions.NONE || opts == IndexOptions.DOCS_AND_CUSTOM_FREQS) {
         continue;
       }
       FieldType ft = new FieldType();
