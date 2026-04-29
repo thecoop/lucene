@@ -95,8 +95,12 @@ Optimizations
 
 * GITHUB#15970: Reduce memory usage of fields with long terms during segment merges. (Alan Woodward)
 
+* GITHUB#15868: Optimize DisjunctionMaxBulkScorer by reusing the inner LeafCollector across
+  sub-scorers and resetting windowScores inline during replay instead of Arrays.fill. (Prithvi S)
+
 * GITHUB#15732: Prevent writing vectors twice during merging HNSW graphs by allowing doing deferred work after calling
   merge for vectors is finshed. (Ignacio Vera)
+
 
 Bug Fixes
 ---------------------
